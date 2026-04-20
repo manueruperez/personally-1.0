@@ -1,0 +1,49 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# editors
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+
+# prisma local
+prisma/.db
+*.db
+*.db-journal
+
+# whatsapp-web.js
+.wwebjs_auth/
+.wwebjs_cache/
+
+# tests
+coverage/
+.nyc_output/
+
+# misc
+.turbo/
+.cache/

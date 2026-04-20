@@ -1,0 +1,58 @@
+# ============================================================
+# Personally 1.0 — .gitignore (raíz)
+# ============================================================
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+out/
+.next/
+*.tsbuildinfo
+
+# Env (NUNCA commit)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+
+# Prisma local
+*.db
+*.db-journal
+
+# WhatsApp session (LocalAuth — incluye cookies, privado)
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Tests coverage
+coverage/
+.nyc_output/
+
+# Cache
+.turbo/
+.cache/
+
+# Demo vieja (pre-MVP, 480MB, no va al repo)
+project-demo/
+
+# Local memory (Claude Code auto-memory — usar session-context/ en su lugar)
+.claude/

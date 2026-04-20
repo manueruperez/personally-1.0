@@ -1,0 +1,3 @@
+- [User profile — Juan Manuel](user_profile.md) — Spanish-LATAM, terse, has PC as 24/7 server for piloto
+- [Personally 1.0 project](project_personally.md) — WhatsApp bot SaaS MVP, 8/8 dispatcher validated, panel complete, 167/167 tests
+- [Tests per feature policy](feedback_tests_per_feature.md) — user requires tests with every new dev, confirmed 2026-04-20

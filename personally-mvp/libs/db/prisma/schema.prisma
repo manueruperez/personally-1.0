@@ -1,0 +1,458 @@
+// Personally MVP — Prisma schema
+// Fuente de verdad: personally-pc/specs/db/01-rutinas.md
+//
+// Principios:
+//   - Multi-tenancy desde el schema (organizationId en todas las tablas de negocio)
+//   - Plan (editable hacia adelante) vs. Ejecucion (append-only)
+//   - Catalogo de ejercicios separado y referenciado
+//   - Ciclo de vida explicito: presentado != iniciado != completado
+//   - Sesion como unidad de cumplimiento (contadores denormalizados)
+//   - Conversacion capturada end-to-end en `messages`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// ORGANIZACIONES Y USUARIOS
+// ============================================================
+
+model Organization {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  type      OrgType  @default(solo_trainer)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  trainers          Trainer[]
+  clients           Client[]
+  plans             Plan[]
+  sessions          Session[]
+  messages          Message[]
+  exercises         Exercise[]
+  notifications     Notification[]
+
+  @@map("organizations")
+}
+
+enum OrgType {
+  solo_trainer
+  gym
+
+  @@map("org_type")
+}
+
+model Trainer {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String   @unique @map("user_id") @db.Uuid // FK a auth.users.id (Supabase)
+  role           Role     @default(trainer)
+  name           String
+  email          String   @unique
+  phone          String?
+  photoUrl       String?  @map("photo_url")
+  timezone       String   @default("America/Bogota")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization  Organization   @relation(fields: [organizationId], references: [id])
+  clients       Client[]
+  plans         Plan[]
+  notifications Notification[]
+
+  @@index([organizationId])
+  @@map("trainers")
+}
+
+enum Role {
+  trainer
+  owner
+  admin
+
+  @@map("role")
+}
+
+model Client {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  trainerId      String   @map("trainer_id") @db.Uuid
+  name           String
+  phone          String // E.164 con pais, ej. +573001234567
+  email          String?
+  status         ClientStatus @default(active)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  trainer      Trainer           @relation(fields: [trainerId], references: [id])
+  preferences  ClientPreference?
+  plans        Plan[]
+  sessions     Session[]
+  messages     Message[]
+
+  @@unique([organizationId, phone])
+  @@index([trainerId])
+  @@index([organizationId])
+  @@map("clients")
+}
+
+enum ClientStatus {
+  active
+  paused
+  archived
+
+  @@map("client_status")
+}
+
+model ClientPreference {
+  clientId            String  @id @map("client_id") @db.Uuid
+  timezone            String  @default("America/Bogota")
+  preferredStartTime  String  @default("05:00") @map("preferred_start_time") // HH:mm
+  reminderEnabled     Boolean @default(true) @map("reminder_enabled")
+  silenceAfterFinish  Boolean @default(true) @map("silence_after_finish")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("client_preferences")
+}
+
+// ============================================================
+// CATALOGO DE EJERCICIOS
+// ============================================================
+
+model Exercise {
+  id              String  @id @default(uuid()) @db.Uuid
+  source          ExerciseSource @default(free_exercise_db)
+  sourceRef       String? @map("source_ref")
+  nameEs          String  @map("name_es")
+  nameEn          String? @map("name_en")
+  muscleprimary   String[] @map("muscle_primary")
+  muscleSecondary String[] @map("muscle_secondary")
+  equipment       String[]
+  level           String?
+  mechanic        String?
+  instructions    String?
+  imageUrl        String? @map("image_url")
+  videoUrl        String? @map("video_url")
+  createdBy       String? @map("created_by") @db.Uuid // trainer que lo creo (si es custom)
+  organizationId  String? @map("organization_id") @db.Uuid // privado a una org (si custom)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  planItems    PlanItem[]
+  exerciseLogs ExerciseLog[]
+
+  @@index([nameEs])
+  @@index([organizationId])
+  @@map("exercises")
+}
+
+enum ExerciseSource {
+  free_exercise_db
+  custom
+  exercisedb
+
+  @@map("exercise_source")
+}
+
+// ============================================================
+// PLAN (diseno del entrenador)
+// ============================================================
+
+model Plan {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  clientId       String   @map("client_id") @db.Uuid
+  trainerId      String   @map("trainer_id") @db.Uuid
+  name           String
+  goal           String?
+  daysPerWeek    Int      @map("days_per_week") // 3, 4 o 5
+  startDate      DateTime @map("start_date") @db.Date
+  endDate        DateTime @map("end_date") @db.Date
+  status         PlanStatus @default(draft)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  client       Client       @relation(fields: [clientId], references: [id])
+  trainer      Trainer      @relation(fields: [trainerId], references: [id])
+  weeks        PlanWeek[]
+
+  @@index([clientId, status])
+  @@index([organizationId])
+  @@map("plans")
+}
+
+enum PlanStatus {
+  draft
+  active
+  archived
+
+  @@map("plan_status")
+}
+
+model PlanWeek {
+  id         String    @id @default(uuid()) @db.Uuid
+  planId     String    @map("plan_id") @db.Uuid
+  weekNumber Int       @map("week_number") // 1..N (min 12)
+  phase      WeekPhase @default(load)
+  notes      String?
+
+  plan Plan       @relation(fields: [planId], references: [id], onDelete: Cascade)
+  days PlanDay[]
+
+  @@unique([planId, weekNumber])
+  @@map("plan_weeks")
+}
+
+enum WeekPhase {
+  load
+  deload
+  test
+  custom
+
+  @@map("week_phase")
+}
+
+model PlanDay {
+  id                    String   @id @default(uuid()) @db.Uuid
+  planWeekId            String   @map("plan_week_id") @db.Uuid
+  dayOfWeek             Int      @map("day_of_week") // 1=lunes .. 7=domingo
+  focus                 String?
+  estimatedDurationMin  Int?     @map("estimated_duration_min")
+  isRestDay             Boolean  @default(false) @map("is_rest_day")
+  notes                 String?
+
+  week     PlanWeek   @relation(fields: [planWeekId], references: [id], onDelete: Cascade)
+  items    PlanItem[]
+  sessions Session[]
+
+  @@unique([planWeekId, dayOfWeek])
+  @@map("plan_days")
+}
+
+model PlanItem {
+  id             String     @id @default(uuid()) @db.Uuid
+  planDayId      String     @map("plan_day_id") @db.Uuid
+  block          BlockType
+  orderIndex     Int        @map("order_index")
+  exerciseId     String     @map("exercise_id") @db.Uuid
+  sets           Int?
+  reps           String? // "10", "8-12", "AMRAP", "30s"
+  restSeconds    Int?       @map("rest_seconds")
+  tempo          String? // "3-0-1-0"
+  loadSuggestion String?    @map("load_suggestion") // "RPE 7", "70%", "peso comodo"
+  rpeTarget      Int?       @map("rpe_target") // 1-10
+  cues           String?
+  notes          String?
+  groupId        String?    @map("group_id") @db.Uuid // superset/circuito
+  groupType      GroupType? @map("group_type")
+
+  day          PlanDay       @relation(fields: [planDayId], references: [id], onDelete: Cascade)
+  exercise     Exercise      @relation(fields: [exerciseId], references: [id])
+  exerciseLogs ExerciseLog[]
+
+  @@unique([planDayId, block, orderIndex])
+  @@index([planDayId, block, orderIndex])
+  @@map("plan_items")
+}
+
+enum BlockType {
+  warmup
+  exercise
+  cooldown
+
+  @@map("block_type")
+}
+
+enum GroupType {
+  superset
+  circuit
+  giant_set
+
+  @@map("group_type")
+}
+
+// ============================================================
+// EJECUCION (historial del cliente)
+// ============================================================
+
+model Session {
+  id              String   @id @default(uuid()) @db.Uuid
+  organizationId  String   @map("organization_id") @db.Uuid
+  clientId        String   @map("client_id") @db.Uuid
+  planDayId       String   @map("plan_day_id") @db.Uuid
+  scheduledDate   DateTime @map("scheduled_date") @db.Date
+  channel         String   @default("whatsapp")
+  status          SessionStatus @default(scheduled)
+  greetedAt       DateTime? @map("greeted_at")
+  startedAt       DateTime? @map("started_at")
+  finishedAt      DateTime? @map("finished_at")
+  itemsTotal      Int      @default(0) @map("items_total")
+  itemsPresented  Int      @default(0) @map("items_presented")
+  itemsDone       Int      @default(0) @map("items_done")
+  itemsSkipped    Int      @default(0) @map("items_skipped")
+  completionRate  Decimal  @default(0) @map("completion_rate") @db.Decimal(4, 3)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  client       Client        @relation(fields: [clientId], references: [id])
+  planDay      PlanDay       @relation(fields: [planDayId], references: [id])
+  logs         ExerciseLog[]
+  messages     Message[]
+
+  @@unique([clientId, scheduledDate])
+  @@index([organizationId, scheduledDate, status])
+  @@map("sessions")
+}
+
+enum SessionStatus {
+  scheduled
+  greeted
+  in_progress
+  completed
+  partial
+  abandoned
+  missed
+
+  @@map("session_status")
+}
+
+model ExerciseLog {
+  id              String     @id @default(uuid()) @db.Uuid
+  sessionId       String     @map("session_id") @db.Uuid
+  planItemId      String     @map("plan_item_id") @db.Uuid
+  exerciseId      String     @map("exercise_id") @db.Uuid // denormalizado para reportes
+  orderInSession  Int        @map("order_in_session")
+  deferCount      Int        @default(0) @map("defer_count") // veces que el cliente difirió este item (max 3 → skipped permanente)
+  status          LogStatus  @default(pending)
+  presentedAt     DateTime?  @map("presented_at")
+  startedAt       DateTime?  @map("started_at")
+  finishedAt      DateTime?  @map("finished_at")
+  setsDone        Int?       @map("sets_done")
+  repsDone        String?    @map("reps_done")
+  loadUsed        String?    @map("load_used")
+  rpeReported     Int?       @map("rpe_reported")
+  notes           String?
+  createdAt       DateTime   @default(now()) @map("created_at")
+
+  session  Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  planItem PlanItem @relation(fields: [planItemId], references: [id])
+  exercise Exercise @relation(fields: [exerciseId], references: [id])
+  messages Message[]
+
+  @@index([sessionId])
+  @@index([exerciseId, status])
+  @@map("exercise_logs")
+}
+
+enum LogStatus {
+  pending
+  presented
+  done
+  skipped
+  changed
+  missed
+  deferred
+
+  @@map("log_status")
+}
+
+// ============================================================
+// MENSAJES (conversacion completa)
+// ============================================================
+
+model Message {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  clientId          String    @map("client_id") @db.Uuid
+  sessionId         String?   @map("session_id") @db.Uuid // nullable: mensajes fuera de sesion
+  direction         Direction
+  channel           String    @default("whatsapp")
+  externalId        String    @map("external_id") // id del canal para dedup
+  sentAt            DateTime  @map("sent_at")
+  receivedAt        DateTime? @map("received_at")
+  contentType       ContentType @map("content_type")
+  contentText       String?   @map("content_text")
+  mediaUrl          String?   @map("media_url")
+  intentDetected    String?   @map("intent_detected") // START | NEXT | SKIP | CHANGE | PAIN | FINISH | UNKNOWN
+  intentConfidence  Decimal?  @map("intent_confidence") @db.Decimal(3, 2)
+  triggeredAction   String?   @map("triggered_action") // advance | skip | change_request | finish | start | none
+  exerciseLogId     String?   @map("exercise_log_id") @db.Uuid
+  templateKey       String?   @map("template_key")
+  isTemplateBased   Boolean?  @map("is_template_based")
+  agentVersion      String?   @map("agent_version")
+  error             String?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  client       Client       @relation(fields: [clientId], references: [id])
+  session      Session?     @relation(fields: [sessionId], references: [id])
+  exerciseLog  ExerciseLog? @relation(fields: [exerciseLogId], references: [id])
+
+  @@unique([channel, externalId])
+  @@index([clientId, sentAt])
+  @@index([sessionId, sentAt])
+  @@index([intentDetected])
+  @@map("messages")
+}
+
+enum Direction {
+  inbound
+  outbound
+
+  @@map("direction")
+}
+
+enum ContentType {
+  text
+  image
+  audio
+  video
+  sticker
+  document
+  unknown
+
+  @@map("content_type")
+}
+
+// ============================================================
+// NOTIFICACIONES
+// ============================================================
+
+model Notification {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  trainerId      String   @map("trainer_id") @db.Uuid
+  type           NotificationType
+  title          String
+  body           String
+  metadata       Json? // context adicional (clientId, sessionId, etc.)
+  readAt         DateTime? @map("read_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  trainer      Trainer      @relation(fields: [trainerId], references: [id])
+
+  @@index([trainerId, readAt])
+  @@index([organizationId, createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  change_request
+  no_response_n_days
+  pain_report
+  agent_offline
+  agent_reconnected
+  plan_expiring
+
+  @@map("notification_type")
+}
