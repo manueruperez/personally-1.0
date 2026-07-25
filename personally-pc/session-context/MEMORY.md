@@ -1,3 +1,5 @@
 - [User profile — Juan Manuel](user_profile.md) — Spanish-LATAM, terse, has PC as 24/7 server for piloto
 - [Personally 1.0 project](project_personally.md) — WhatsApp bot SaaS MVP, 8/8 dispatcher validated, panel complete, 167/167 tests
 - [Tests per feature policy](feedback_tests_per_feature.md) — user requires tests with every new dev, confirmed 2026-04-20
+- [Setup gotchas](setup_gotchas.md) — fresh-machine: corepack + `pnpm -r build` antes de `api:dev`; frontend build falla con TS2742 (no bloquea dev)
+- [IN-PROGRESS bootup](in_progress_bootup.md) — 2026-04-20: 3 servicios arriba, chrome-devtools MCP recién instalado user-scope, falta verificar frontend visual y agent QR. BORRAR cuando se complete.
