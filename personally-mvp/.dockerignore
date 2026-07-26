@@ -1,0 +1,24 @@
+# Nunca al contexto de build (secretos + artefactos locales)
+node_modules
+**/node_modules
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+.wwebjs_auth
+**/.wwebjs_auth
+.wwebjs_cache
+**/.wwebjs_cache
+dist
+**/dist
+# tsbuildinfo locales: si entran al contexto, el tsc incremental del contenedor
+# cree que ya compiló y no emite dist → imagen sin JS
+*.tsbuildinfo
+**/*.tsbuildinfo
+coverage
+**/coverage
+*.log
+.DS_Store
+.git
+deploy/.env

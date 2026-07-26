@@ -31,6 +31,7 @@ No promete IA inteligente. No reemplaza al entrenador. No inventa rutinas. Ejecu
 | [docs/05-restricciones-beta.md](docs/05-restricciones-beta.md) | Alcance beta, riesgos asumidos, plan de migración |
 | [docs/06-modelo-negocio.md](docs/06-modelo-negocio.md) | Planes, costos, apuesta estratégica B2B |
 | [docs/07-stack.md](docs/07-stack.md) | Stack técnico, hosting, decisiones confirmadas |
+| [docs/08-despliegue.md](docs/08-despliegue.md) | **Plan de despliegue**: demo self-hosted en VPS (~USD 10/mes) + camino a producción |
 | [TAREAS.md](TAREAS.md) | **Lista accionable**: qué hay que hacer y en qué orden |
 | [specs/](specs/README.md) | **Especificaciones técnicas** por área (db, backend, frontend, bots) |
 | [aprendizajes/](aprendizajes/README.md) | **Auditoría del demo previo** y plan de migración |

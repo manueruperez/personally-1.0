@@ -1,0 +1,134 @@
+# ============================================================
+# Personally — stack de demo/piloto en un solo VPS
+#
+# Servicios: postgres + gotrue (Supabase Auth standalone) + api + agent + caddy
+# Secretos/config: ./.env (copiar de .env.example, generar con scripts/generate-keys.mjs)
+#
+#   docker compose build
+#   docker compose up -d
+#
+# Invariantes (cubiertas por deploy/tests/*.test.ts):
+#   - Solo caddy publica puertos (80/443). Postgres/GoTrue/API/agent: red interna.
+#   - Todos los servicios con restart: unless-stopped.
+#   - El agente habla con la API por red interna (http://api:3000), nunca por el dominio.
+# ============================================================
+
+name: personally
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: personally
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d personally']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Supabase Auth (GoTrue) standalone: sirve /token, /admin/users, etc.
+  # Caddy lo expone bajo /auth/v1/* para que supabase-js funcione sin cambios.
+  gotrue:
+    image: supabase/gotrue:v2.158.1
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: '9999'
+      API_EXTERNAL_URL: https://${DOMAIN}
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/personally?search_path=auth
+      GOTRUE_SITE_URL: https://${DOMAIN}
+      GOTRUE_URI_ALLOW_LIST: https://${DOMAIN}
+      GOTRUE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      GOTRUE_JWT_EXP: '3600'
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      # El bootstrap usa el service role key (JWT con role=service_role) contra /admin/*
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      # Solo el admin crea usuarios (igual que el flujo bootstrap:trainer actual)
+      GOTRUE_DISABLE_SIGNUP: 'true'
+      GOTRUE_MAILER_AUTOCONFIRM: 'true'
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/docker/api.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      gotrue:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: info
+      API_PORT: '3000'
+      API_BASE_URL: https://${DOMAIN}
+      CORS_ORIGINS: https://${DOMAIN}
+      # Conexión directa al postgres del stack: sin pgbouncer (single instance)
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/personally
+      DIRECT_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/personally
+      SUPABASE_URL: https://${DOMAIN}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      AGENT_TOKEN: ${AGENT_TOKEN}
+      AGENT_TRAINER_ID: ${AGENT_TRAINER_ID}
+      SCHEDULER_TIMEZONE: ${TZ:-America/Bogota}
+      TZ: ${TZ:-America/Bogota}
+
+  agent:
+    build:
+      context: ..
+      dockerfile: deploy/docker/agent.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: info
+      # Red interna del compose — nunca el dominio público
+      API_BASE_URL: http://api:3000
+      AGENT_TOKEN: ${AGENT_TOKEN}
+      AGENT_TRAINER_ID: ${AGENT_TRAINER_ID}
+      PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
+      TZ: ${TZ:-America/Bogota}
+    volumes:
+      # Sesión WhatsApp (LocalAuth) — sobrevive respawns y rebuilds
+      - wwebjs_auth:/app/apps/agent/.wwebjs_auth
+
+  caddy:
+    build:
+      context: ..
+      dockerfile: deploy/docker/web.Dockerfile
+      args:
+        VITE_API_BASE_URL: ''
+        VITE_SUPABASE_URL: https://${DOMAIN}
+        VITE_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+    restart: unless-stopped
+    depends_on:
+      - api
+      - gotrue
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  wwebjs_auth:
+  caddy_data:
+  caddy_config:

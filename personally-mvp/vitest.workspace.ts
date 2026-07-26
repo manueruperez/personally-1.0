@@ -15,5 +15,19 @@ export default defineWorkspace([
       environment: 'node',
     },
   },
+  {
+    test: {
+      name: 'agent',
+      include: ['apps/agent/**/*.test.ts'],
+      environment: 'node',
+    },
+  },
+  {
+    test: {
+      name: 'deploy',
+      include: ['deploy/**/*.test.ts'],
+      environment: 'node',
+    },
+  },
   './apps/frontend/vitest.config.ts',
 ]);

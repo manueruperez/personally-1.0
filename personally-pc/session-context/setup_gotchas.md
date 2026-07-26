@@ -12,11 +12,9 @@ originSessionId: 2026-04-20-bootup
 2. **`pnpm -r build` ANTES de `pnpm api:dev`** (o al menos `pnpm --filter @personally/db build`).
    La API importa `@personally/db/dist/index.js` → sin `dist/` compilado, `tsx watch src/index.ts` crashea con `ERR_MODULE_NOT_FOUND`. `pnpm db:generate` solo genera el Prisma client, NO compila el lib.
 
-**Gotcha del frontend build (pre-existente, no bloqueante):**
-- `pnpm --filter @personally/frontend build` falla con 2 errores TS2742:
-  - `src/routes/index.tsx:15` — `router` type reference portability
-  - `src/test/render.tsx:14` — `renderWithProviders` type reference portability
-- **No afecta `pnpm frontend:dev`** (Vite no corre tsc en dev). Si se quiere build de producción, hay que anotar los tipos a mano.
+**Gotcha del frontend build — RESUELTO 2026-07-25:**
+- Los 2 errores TS2742 (`src/routes/index.tsx`, `src/test/render.tsx`) se arreglaron con anotaciones explícitas de tipo. `pnpm --filter @personally/frontend build` pasa.
+- Ese mismo día se arregló el build de producción de la API (`tsc` nunca se había corrido completo): relaciones Prisma mal nombradas en plans/service (bugs de runtime reales), export type de `Prisma` en libs/db, `SendResult` sin re-exportar en messaging, y `req.params` bajo `noUncheckedIndexedAccess`. La API buildea con `tsconfig.build.json` (excluye `*.test.ts`).
 
 **Why:** queremos que futuras sesiones que levanten el repo en otra máquina no pierdan tiempo diagnosticando esto.
 

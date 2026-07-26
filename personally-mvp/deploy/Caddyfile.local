@@ -1,0 +1,30 @@
+# Variante LOCAL del Caddyfile (validación sin dominio real / sin TLS).
+# Mismas rutas y MISMO ORDEN que el Caddyfile de producción — si cambiás uno,
+# cambiá el otro (deploy/tests/caddyfile.test.ts verifica la paridad).
+# Uso: docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+
+:80 {
+	encode zstd gzip
+
+	handle_path /auth/v1/* {
+		reverse_proxy gotrue:9999
+	}
+
+	handle /api/v1/internal/* {
+		respond "forbidden" 403
+	}
+
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	handle /health {
+		reverse_proxy api:3000
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

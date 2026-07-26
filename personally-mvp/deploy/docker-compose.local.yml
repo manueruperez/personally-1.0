@@ -1,0 +1,9 @@
+# Override para validar el stack en una máquina local SIN dominio real:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+# Sirve todo por http://localhost (sin TLS). El resto del stack es idéntico.
+services:
+  caddy:
+    volumes:
+      - ./Caddyfile.local:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config

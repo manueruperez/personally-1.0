@@ -1,0 +1,37 @@
+# Caddy — único punto de entrada público del stack.
+# Dominio único: frontend + API + auth bajo https://{$DOMAIN}
+# (VITE_API_BASE_URL vacío → el frontend pega same-origin, CORS trivial).
+#
+# ORDEN IMPORTA: los bloques `handle` se evalúan en orden de aparición;
+# /api/v1/internal/* debe bloquearse ANTES del handle genérico de /api/*.
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Supabase Auth (GoTrue): supabase-js arma URLs como {SUPABASE_URL}/auth/v1/...
+	# handle_path le quita el prefijo /auth/v1 porque GoTrue sirve en la raíz.
+	handle_path /auth/v1/* {
+		reverse_proxy gotrue:9999
+	}
+
+	# Rutas internas API↔agente: solo red docker. Nunca desde internet
+	# (defensa en profundidad — además exigen AGENT_TOKEN).
+	handle /api/v1/internal/* {
+		respond "forbidden" 403
+	}
+
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	handle /health {
+		reverse_proxy api:3000
+	}
+
+	# Frontend SPA (build de Vite)
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
