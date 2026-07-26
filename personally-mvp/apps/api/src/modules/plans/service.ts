@@ -265,17 +265,18 @@ export async function addPlanItem(dayId: string, input: AddPlanItemInput, ctx: A
   const day = await prisma.planDay.findFirst({
     where: {
       id: dayId,
-      planWeek: {
+      // Nombre de relación según schema: PlanDay.week (no "planWeek")
+      week: {
         plan: { organizationId: ctx.organizationId, trainerId: ctx.trainerId },
       },
     },
     include: {
       items: { where: { block: input.block }, orderBy: { orderIndex: 'desc' }, take: 1 },
-      planWeek: { include: { plan: true } },
+      week: { include: { plan: true } },
     },
   });
   if (!day) throw new DomainError('NOT_FOUND', 'Día de plan no encontrado');
-  if (day.planWeek.plan.status === 'archived') {
+  if (day.week.plan.status === 'archived') {
     throw new DomainError('CONFLICT', 'No se pueden agregar items a un plan archivado');
   }
 
@@ -310,16 +311,17 @@ export async function deletePlanItem(itemId: string, ctx: AuthContext) {
   const item = await prisma.planItem.findFirst({
     where: {
       id: itemId,
-      planDay: {
-        planWeek: {
+      // Nombres de relación según schema: PlanItem.day / PlanDay.week
+      day: {
+        week: {
           plan: { organizationId: ctx.organizationId, trainerId: ctx.trainerId },
         },
       },
     },
-    include: { planDay: { include: { planWeek: { include: { plan: true } } } } },
+    include: { day: { include: { week: { include: { plan: true } } } } },
   });
   if (!item) throw new DomainError('NOT_FOUND', 'Item no encontrado');
-  if (item.planDay.planWeek.plan.status === 'archived') {
+  if (item.day.week.plan.status === 'archived') {
     throw new DomainError('CONFLICT', 'No se pueden borrar items de un plan archivado');
   }
   await prisma.planItem.delete({ where: { id: itemId } });
@@ -346,8 +348,9 @@ export async function updatePlanItem(
   const item = await prisma.planItem.findFirst({
     where: {
       id: itemId,
-      planDay: {
-        planWeek: {
+      // Nombres de relación según schema: PlanItem.day / PlanDay.week
+      day: {
+        week: {
           plan: {
             organizationId: ctx.organizationId,
             trainerId: ctx.trainerId,
@@ -355,11 +358,11 @@ export async function updatePlanItem(
         },
       },
     },
-    include: { planDay: { include: { planWeek: { include: { plan: true } } } } },
+    include: { day: { include: { week: { include: { plan: true } } } } },
   });
   if (!item) throw new DomainError('NOT_FOUND', 'Item de plan no encontrado');
 
-  const planStatus = item.planDay.planWeek.plan.status;
+  const planStatus = item.day.week.plan.status;
   if (planStatus === 'archived') {
     throw new DomainError('CONFLICT', 'No se pueden editar items de un plan archivado');
   }

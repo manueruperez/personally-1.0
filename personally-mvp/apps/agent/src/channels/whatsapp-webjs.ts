@@ -11,6 +11,7 @@ import type {
   SessionStateHandler,
 } from '@personally/messaging';
 import { logger } from '../logger.js';
+import { buildPuppeteerConfig } from '../puppeteer-config.js';
 import type { ApiClient } from '../api-client.js';
 
 const { Client, LocalAuth, MessageMedia } = pkg;
@@ -40,16 +41,7 @@ export class WhatsAppWebJsChannel implements MessagingChannel {
 
     this.client = new Client({
       authStrategy: new LocalAuth({ dataPath }),
-      puppeteer: {
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-          '--no-first-run',
-        ],
-      },
+      puppeteer: buildPuppeteerConfig(),
     });
 
     this.client.on('qr', (qr) => {

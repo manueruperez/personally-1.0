@@ -4,9 +4,14 @@ import { DomainError } from '@personally/core';
 import { prisma } from '@personally/db';
 import { logger } from '../lib/logger.js';
 
-declare module 'express-serve-static-core' {
-  interface Request {
-    ctx?: AuthContext;
+// Augmentation global del namespace Express: con node_modules estrictos de pnpm,
+// `declare module 'express-serve-static-core'` no resuelve (no es dep directa)
+// y rompe el build de producción.
+declare global {
+  namespace Express {
+    interface Request {
+      ctx?: AuthContext;
+    }
   }
 }
 

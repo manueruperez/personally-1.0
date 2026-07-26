@@ -57,7 +57,8 @@ internalRouter.post(
       });
       if (!client) {
         logger.warn({ phone: req.params.phone }, 'Incoming de cliente desconocido');
-        return res.json({ data: { ignored: true, reason: 'unknown_client' } });
+        res.json({ data: { ignored: true, reason: 'unknown_client' } });
+        return;
       }
 
       // Sesion activa (si la hay)

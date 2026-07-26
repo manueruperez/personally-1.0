@@ -14,7 +14,7 @@ plansRouter.get(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await service.listPlansByClient(req.params.clientId, req.ctx);
+      const data = await service.listPlansByClient(req.params.clientId!, req.ctx);
       res.json({ data });
     } catch (err) {
       next(err);
@@ -31,7 +31,7 @@ plansRouter.post(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await service.createPlanDraft(req.params.clientId, req.body, req.ctx);
+      const data = await service.createPlanDraft(req.params.clientId!, req.body, req.ctx);
       res.status(201).json({ data });
     } catch (err) {
       next(err);
@@ -45,7 +45,7 @@ plansRouter.get(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await service.getPlan(req.params.id, req.ctx);
+      const data = await service.getPlan(req.params.id!, req.ctx);
       if (!data) throw new DomainError('NOT_FOUND', 'Plan no encontrado');
       res.json({ data });
     } catch (err) {
@@ -63,7 +63,7 @@ plansRouter.patch(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await service.updatePlan(req.params.id, req.body, req.ctx);
+      const data = await service.updatePlan(req.params.id!, req.body, req.ctx);
       res.json({ data });
     } catch (err) {
       next(err);
@@ -77,7 +77,7 @@ plansRouter.post(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await service.activatePlan(req.params.id, req.ctx);
+      const data = await service.activatePlan(req.params.id!, req.ctx);
       res.json({ data });
     } catch (err) {
       next(err);
@@ -91,7 +91,7 @@ plansRouter.post(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await service.revertPlanToDraft(req.params.id, req.ctx);
+      const data = await service.revertPlanToDraft(req.params.id!, req.ctx);
       res.json({ data });
     } catch (err) {
       next(err);
@@ -108,7 +108,7 @@ plansRouter.post(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const summary = await importPlanCsv(req.params.id, req.body.csv, req.ctx);
+      const summary = await importPlanCsv(req.params.id!, req.body.csv, req.ctx);
       res.json({ data: summary });
     } catch (err) {
       next(err);
@@ -122,7 +122,7 @@ plansRouter.post(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await service.archivePlan(req.params.id, req.ctx);
+      const data = await service.archivePlan(req.params.id!, req.ctx);
       res.json({ data });
     } catch (err) {
       next(err);
@@ -136,7 +136,7 @@ plansRouter.post(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await service.addPlanWeek(req.params.id, req.ctx);
+      const data = await service.addPlanWeek(req.params.id!, req.ctx);
       res.status(201).json({ data });
     } catch (err) {
       next(err);
@@ -162,7 +162,7 @@ plansRouter.post(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await service.addPlanItem(req.params.dayId, req.body, req.ctx);
+      const data = await service.addPlanItem(req.params.dayId!, req.body, req.ctx);
       res.status(201).json({ data });
     } catch (err) {
       next(err);
@@ -176,7 +176,7 @@ plansRouter.delete(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await service.deletePlanItem(req.params.itemId, req.ctx);
+      const data = await service.deletePlanItem(req.params.itemId!, req.ctx);
       res.json({ data });
     } catch (err) {
       next(err);
@@ -206,7 +206,7 @@ plansRouter.patch(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await service.updatePlanItem(req.params.itemId, req.body, req.ctx);
+      const data = await service.updatePlanItem(req.params.itemId!, req.body, req.ctx);
       res.json({ data });
     } catch (err) {
       next(err);
@@ -225,8 +225,8 @@ plansRouter.delete(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const weekNumber = Number(req.params.weekNumber);
-      const data = await service.deletePlanWeek(req.params.id, weekNumber, req.ctx);
+      const weekNumber = Number(req.params.weekNumber!);
+      const data = await service.deletePlanWeek(req.params.id!, weekNumber, req.ctx);
       res.json({ data });
     } catch (err) {
       next(err);

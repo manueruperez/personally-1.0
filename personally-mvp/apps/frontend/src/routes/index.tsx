@@ -12,7 +12,9 @@ import { AgentPage } from '@/pages/AgentPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
-export const router = createBrowserRouter([
+// Anotacion explicita: sin ella, la emision de declaraciones falla con TS2742
+// (tipo inferido no portable entre node_modules de pnpm).
+export const router: ReturnType<typeof createBrowserRouter> = createBrowserRouter([
   {
     element: <AuthLayout />,
     children: [{ path: '/login', element: <LoginPage /> }],

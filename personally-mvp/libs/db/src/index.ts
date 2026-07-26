@@ -16,4 +16,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export * from '@prisma/client';
-export type { Prisma } from '@prisma/client';
+// Export de VALOR (no `export type`): el dispatcher usa `new Prisma.Decimal(...)`
+// en runtime — con export type se borra al compilar y crashea con
+// "Prisma is not defined".
+export { Prisma } from '@prisma/client';

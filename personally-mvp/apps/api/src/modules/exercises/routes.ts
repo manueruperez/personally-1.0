@@ -36,7 +36,7 @@ exercisesRouter.get(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const ex = await findExerciseById(req.params.id, { organizationId: req.ctx.organizationId });
+      const ex = await findExerciseById(req.params.id!, { organizationId: req.ctx.organizationId });
       if (!ex) throw new DomainError('NOT_FOUND', 'Ejercicio no encontrado');
       res.json({ data: ex });
     } catch (err) {

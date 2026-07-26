@@ -33,8 +33,8 @@ beforeEach(() => {
 describe('updatePlanItem', () => {
   const stubItem = {
     id: 'item-1',
-    planDay: {
-      planWeek: {
+    day: {
+      week: {
         plan: {
           id: 'plan-1',
           status: 'draft',
@@ -77,9 +77,9 @@ describe('updatePlanItem', () => {
   it('falla si el plan esta archived', async () => {
     prismaMock.planItem.findFirst.mockResolvedValue({
       ...stubItem,
-      planDay: {
-        planWeek: {
-          plan: { ...stubItem.planDay.planWeek.plan, status: 'archived' },
+      day: {
+        week: {
+          plan: { ...stubItem.day.week.plan, status: 'archived' },
         },
       },
     });
@@ -90,9 +90,9 @@ describe('updatePlanItem', () => {
   it('plan active es editable (para ajustes durante piloto)', async () => {
     prismaMock.planItem.findFirst.mockResolvedValue({
       ...stubItem,
-      planDay: {
-        planWeek: {
-          plan: { ...stubItem.planDay.planWeek.plan, status: 'active' },
+      day: {
+        week: {
+          plan: { ...stubItem.day.week.plan, status: 'active' },
         },
       },
     });
@@ -138,7 +138,7 @@ describe('addPlanItem', () => {
   const stubDay = {
     id: 'day-1',
     items: [{ orderIndex: 2 }],
-    planWeek: {
+    week: {
       plan: { id: 'plan-1', status: 'draft', organizationId: 'org-1', trainerId: 'trainer-1' },
     },
   };
@@ -172,8 +172,8 @@ describe('addPlanItem', () => {
   it('falla si plan archivado', async () => {
     prismaMock.planDay.findFirst.mockResolvedValue({
       ...stubDay,
-      planWeek: {
-        plan: { ...stubDay.planWeek.plan, status: 'archived' },
+      week: {
+        plan: { ...stubDay.week.plan, status: 'archived' },
       },
     });
     await expect(
@@ -194,8 +194,8 @@ describe('deletePlanItem', () => {
   it('borra item si plan no archivado', async () => {
     prismaMock.planItem.findFirst.mockResolvedValue({
       id: 'item-1',
-      planDay: {
-        planWeek: {
+      day: {
+        week: {
           plan: { status: 'draft' },
         },
       },
@@ -209,7 +209,7 @@ describe('deletePlanItem', () => {
   it('rechaza si plan archivado', async () => {
     prismaMock.planItem.findFirst.mockResolvedValue({
       id: 'item-1',
-      planDay: { planWeek: { plan: { status: 'archived' } } },
+      day: { week: { plan: { status: 'archived' } } },
     });
     await expect(deletePlanItem('item-1', ctx)).rejects.toThrow('archivado');
     expect(prismaMock.planItem.delete).not.toHaveBeenCalled();

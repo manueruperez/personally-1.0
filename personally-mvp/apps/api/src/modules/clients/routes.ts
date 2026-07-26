@@ -46,7 +46,7 @@ clientsRouter.get(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await service.getClient(req.params.id, req.ctx);
+      const data = await service.getClient(req.params.id!, req.ctx);
       if (!data) throw new DomainError('NOT_FOUND', 'Cliente no encontrado');
       res.json({ data });
     } catch (err) {
@@ -64,7 +64,7 @@ clientsRouter.patch(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await service.updateClient(req.params.id, req.body, req.ctx);
+      const data = await service.updateClient(req.params.id!, req.body, req.ctx);
       res.json({ data });
     } catch (err) {
       next(err);
@@ -78,7 +78,7 @@ clientsRouter.delete(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await service.archiveClient(req.params.id, req.ctx);
+      const data = await service.archiveClient(req.params.id!, req.ctx);
       res.json({ data });
     } catch (err) {
       next(err);
@@ -98,9 +98,9 @@ clientsRouter.get(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await service.listClientMessages(req.params.id, req.ctx, {
-        limit: Number((req.query as { limit: number }).limit),
-        before: (req.query as { before?: Date }).before,
+      const data = await service.listClientMessages(req.params.id!, req.ctx, {
+        limit: Number((req.query as unknown as { limit: number }).limit),
+        before: (req.query as unknown as { before?: Date }).before,
       });
       res.json({ data });
     } catch (err) {
@@ -115,7 +115,7 @@ clientsRouter.get(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await service.getTodaySession(req.params.id, req.ctx);
+      const data = await service.getTodaySession(req.params.id!, req.ctx);
       res.json({ data });
     } catch (err) {
       next(err);
@@ -129,7 +129,7 @@ clientsRouter.delete(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await service.resetTodaySession(req.params.id, req.ctx);
+      const data = await service.resetTodaySession(req.params.id!, req.ctx);
       res.json({ data });
     } catch (err) {
       next(err);
@@ -143,7 +143,7 @@ clientsRouter.post(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await service.triggerDailyGreeting(req.params.id, req.ctx);
+      const data = await service.triggerDailyGreeting(req.params.id!, req.ctx);
       res.status(202).json({ data });
     } catch (err) {
       next(err);
@@ -160,7 +160,7 @@ clientsRouter.post(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await service.sendTestMessage(req.params.id, req.body.text, req.ctx);
+      const data = await service.sendTestMessage(req.params.id!, req.body.text, req.ctx);
       res.status(202).json({ data });
     } catch (err) {
       next(err);

@@ -228,7 +228,8 @@ async function main() {
     if (e.match) {
       if (e.kind === 'EXACT' || e.kind === 'CI' || e.kind === 'NORMALIZED') {
         if (e.match.hasImage) {
-          (summary.withImage as Record<string, number>)[e.kind]++;
+          const withImage = summary.withImage as Record<string, number>;
+          withImage[e.kind] = (withImage[e.kind] ?? 0) + 1;
         }
       }
     }

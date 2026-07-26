@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, type RenderOptions } from '@testing-library/react';
+import { render, type RenderOptions, type RenderResult } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -11,7 +11,12 @@ interface Options extends Omit<RenderOptions, 'wrapper'> {
  * Render helper que envuelve componentes con QueryClient + Router
  * (los que mas necesitan nuestros componentes para testear).
  */
-export function renderWithProviders(ui: ReactElement, opts: Options = {}) {
+// Retorno anotado explicitamente: sin ello, la emision de declaraciones falla
+// con TS2742 (tipo inferido no portable entre node_modules de pnpm).
+export function renderWithProviders(
+  ui: ReactElement,
+  opts: Options = {},
+): RenderResult & { queryClient: QueryClient } {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: 0 }, mutations: { retry: false } },
   });

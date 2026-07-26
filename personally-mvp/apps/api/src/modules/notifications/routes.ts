@@ -32,7 +32,7 @@ notificationsRouter.post(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await markNotificationRead(req.params.id, req.ctx);
+      const data = await markNotificationRead(req.params.id!, req.ctx);
       res.json({ data });
     } catch (err) {
       next(err);
@@ -49,7 +49,7 @@ notificationsRouter.post(
   async (req, res, next) => {
     try {
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
-      const data = await replyToNotification(req.params.id, req.body.text, req.ctx);
+      const data = await replyToNotification(req.params.id!, req.body.text, req.ctx);
       res.json({ data });
     } catch (err) {
       next(err);

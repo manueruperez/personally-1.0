@@ -45,7 +45,7 @@ export async function replyToNotification(
 
   const meta = (notif.metadata ?? {}) as { clientId?: string };
   if (!meta.clientId) {
-    throw new DomainError('VALIDATION', 'La notificación no tiene cliente asociado');
+    throw new DomainError('VALIDATION_ERROR', 'La notificación no tiene cliente asociado');
   }
 
   const client = await prisma.client.findUnique({
