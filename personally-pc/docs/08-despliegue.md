@@ -1,6 +1,44 @@
 # 08 — Despliegue
 
-*Creado: 2026-07-25. Actualizado: 2026-07-25 con decisiones de Juan (self-hosted, ≤USD 15/mes).*
+*Creado: 2026-07-25. Actualizado: 2026-07-28 — infra real contratada (dominios + VPS).*
+
+---
+
+## Infra contratada (2026-07-28)
+
+### Dominios (Dynadot, cuenta de Juan)
+
+| Dominio | Rol | Renovación | Auto-renew |
+|---------|-----|-----------|------------|
+| `personallay.com` | **Canónico.** Raíz reservada para landing futura; el producto vive en `app.personallay.com` | $10.88/año | ✅ ON |
+| `personallay.app` | Defensivo, sin DNS | $14.50/año | ✅ ON |
+
+- **DNS del producto:** registro A `app.personallay.com` → `46.225.79.211` (Dynadot DNS, TTL 5 min). El stack completo (frontend + `/api/*` + `/auth/v1/*`) es same-origin bajo ese único hostname — no hay más subdominios.
+- ⚠️ Pendientes en Dynadot: verificar que quedó **método de pago guardado** (sin él, el auto-renew falla silenciosamente; balance de cuenta $0), completar security questions + backup email.
+
+### VPS (Hetzner Cloud)
+
+| Ítem | Valor |
+|------|-------|
+| Proyecto / server | `personally` / `personallay-vps` |
+| Tipo | **CX33** (4 vCPU x86 / 8 GB / 80 GB) — sucesor del CX32 del plan |
+| Ubicación | Nuremberg (eu-central) |
+| SO | Ubuntu 26.04 LTS |
+| IP pública | `46.225.79.211` |
+| Backups Hetzner | ✅ diarios (+20%) |
+| Costo | ~$11.39/mes (server $8.99 + IPv4 $0.60 + backups $1.80) — crédito prepago inicial $25 |
+
+### Acceso
+
+- **SSH:** `ssh -i ~/.ssh/personallay_vps_ed25519 root@46.225.79.211` — llave ed25519 dedicada, generada 2026-07-28 en la Mac de Juan. La privada no sale de esa máquina.
+- Auth por llave únicamente (sin password login). ⚠️ Pendiente en Hetzner: activar 2FA de la cuenta.
+
+### Provisionado base (2026-07-28)
+
+- Docker 29.6.2 + Compose plugin v5.3.1 (script oficial `get.docker.com`).
+- UFW activo: solo OpenSSH, 80/tcp, 443/tcp (v4 y v6). Postgres jamás expuesto.
+- Código en `/opt/personally/personally-mvp` — subido por **rsync desde la Mac** (excluye `node_modules`, `.git`, `.env`, `.wwebjs_auth`).
+  ⚠️ El remote de GitHub (`manueruperez/personally-1.0`) está 2 commits atrás y **no tiene la infra de deploy** — hasta hacer push, la Mac es la fuente de verdad y los redeploys van por rsync.
 
 **Contexto de la demo:** un entrenador de una universidad va a probar el producto de forma remota durante días/semanas. La demo NO puede depender de las PCs de Juan → todo en un VPS.
 
@@ -93,8 +131,10 @@ Entrenador (browser) ──→│  Caddy :443 ─→ /            → frontend e
   - `db push` (13 tablas) + catálogo 873 ejercicios cargado dentro del contenedor.
   - `bootstrap:trainer` contra GoTrue standalone ✅ → login password grant → JWT → `/api/v1/me` devuelve el trainer. **Swap Supabase→GoTrue validado sin tocar código.**
   - Agente arranca Chromium en contenedor, genera QR (`qr_required`) y su heartbeat llega a la API.
-- [ ] En el VPS real: escanear QR con el número dedicado (panel `/agent` ya renderiza QR remoto ✅) y correr `./smoke.sh <dominio>`.
-- [ ] Nota local: el frontend hornea `VITE_SUPABASE_URL=https://$DOMAIN` al build — el login desde browser solo funciona con el dominio real (la validación local del auth se hizo por curl).
+- [x] **Deploy real ejecutado (2026-07-28/29):** stack completo arriba en `https://app.personallay.com` — TLS emitido por Caddy, `./smoke.sh app.personallay.com` **6/6 OK**, schema (13 tablas) + catálogo (873) + traducciones cargados.
+- [x] Bootstrap del trainer en el VPS (2026-07-29, mismas credenciales que el entorno local): `trainerId fc574b0e-e55d-46ab-81b3-ff4db136e5c3` → `AGENT_TRAINER_ID` en `.env` → agente arriba pidiendo QR, SSE conectado.
+- [x] Login E2E validado contra el dominio real: password grant → JWT → `/api/v1/me` devuelve el trainer.
+- [ ] Escanear QR con el número dedicado en `https://app.personallay.com/agent`.
 
 ### Checklist pre-entrega al entrenador
 
