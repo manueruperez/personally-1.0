@@ -5,9 +5,16 @@ import { Badge } from '@/components/atoms/Badge';
 import { Button } from '@/components/atoms/Button';
 import { EditableCell } from '@/components/atoms/EditableCell';
 import { ExercisePickerDialog } from '@/components/organisms/ExercisePickerDialog';
+import { AddPlanDayDialog } from '@/components/organisms/AddPlanDayDialog';
 import { cn } from '@/lib/utils';
-import { useAddPlanItem, useDeletePlanItem, useUpdatePlanItem } from '@/features/plans/hooks';
-import type { PlanWeekDto, PlanItemDto } from '@/features/plans/api';
+import {
+  useAddPlanDay,
+  useAddPlanItem,
+  useDeletePlanDay,
+  useDeletePlanItem,
+  useUpdatePlanItem,
+} from '@/features/plans/hooks';
+import type { PlanWeekDto, PlanItemDto, AddPlanDayPayload } from '@/features/plans/api';
 
 const DAY_NAMES = ['', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
 
@@ -18,6 +25,7 @@ interface Props {
   canDelete?: boolean;
   onDelete?: () => void;
   deleting?: boolean;
+  canEditDays?: boolean;
 }
 
 export function PlanWeekView({
@@ -27,7 +35,18 @@ export function PlanWeekView({
   canDelete,
   onDelete,
   deleting,
+  canEditDays,
 }: Props) {
+  const [addDayOpen, setAddDayOpen] = useState(false);
+  const addDay = useAddPlanDay(planId);
+  const removeDay = useDeletePlanDay(planId);
+
+  const usedDays = week.days.map((d) => d.dayOfWeek);
+
+  async function handleAddDay(payload: AddPlanDayPayload) {
+    await addDay.mutateAsync({ weekId: week.id, body: payload });
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -50,7 +69,17 @@ export function PlanWeekView({
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             Semana {week.weekNumber} sin dias cargados.
-            <p className="text-xs mt-2">Importa el CSV para poblar los ejercicios.</p>
+            <p className="text-xs mt-2">
+              {canEditDays
+                ? 'Importá el CSV o agregá días manualmente.'
+                : 'Importa el CSV para poblar los ejercicios.'}
+            </p>
+            {canEditDays && (
+              <Button size="sm" className="mt-4" onClick={() => setAddDayOpen(true)}>
+                <Plus className="h-4 w-4 mr-1" />
+                Agregar dia
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -71,7 +100,29 @@ export function PlanWeekView({
                     <CardDescription>~{day.estimatedDurationMin} min</CardDescription>
                   )}
                 </div>
-                {day.isRestDay && <Badge variant="secondary">Descanso</Badge>}
+                <div className="flex items-center gap-2 shrink-0">
+                  {day.isRestDay && <Badge variant="secondary">Descanso</Badge>}
+                  {canEditDays && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Eliminar el dia ${DAY_NAMES[day.dayOfWeek]} y todos sus ejercicios?`,
+                          )
+                        ) {
+                          void removeDay.mutateAsync(day.id);
+                        }
+                      }}
+                      disabled={removeDay.isPending}
+                      className="rounded p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      title="Eliminar dia"
+                      aria-label={`Eliminar dia ${DAY_NAMES[day.dayOfWeek]}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               </div>
             </CardHeader>
             {!day.isRestDay && (
@@ -104,6 +155,23 @@ export function PlanWeekView({
             )}
           </Card>
         ))
+      )}
+
+      {week.days.length > 0 && week.days.length < 7 && canEditDays && (
+        <Button variant="outline" className="w-full" onClick={() => setAddDayOpen(true)}>
+          <Plus className="h-4 w-4 mr-1" />
+          Agregar dia
+        </Button>
+      )}
+
+      {canEditDays && (
+        <AddPlanDayDialog
+          open={addDayOpen}
+          onOpenChange={setAddDayOpen}
+          usedDays={usedDays}
+          onSubmit={handleAddDay}
+          submitting={addDay.isPending}
+        />
       )}
     </div>
   );

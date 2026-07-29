@@ -145,6 +145,27 @@ plansRouter.post(
 );
 
 plansRouter.post(
+  '/weeks/:weekId/days',
+  validate({
+    params: z.object({ weekId: z.string().uuid() }),
+    body: z.object({
+      dayOfWeek: z.number().int().min(1).max(7),
+      focus: z.string().max(200).nullable().optional(),
+      isRestDay: z.boolean().optional(),
+    }),
+  }),
+  async (req, res, next) => {
+    try {
+      if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
+      const data = await service.addPlanDay(req.params.weekId!, req.body, req.ctx);
+      res.status(201).json({ data });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+plansRouter.post(
   '/days/:dayId/items',
   validate({
     params: z.object({ dayId: z.string().uuid() }),
@@ -164,6 +185,20 @@ plansRouter.post(
       if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
       const data = await service.addPlanItem(req.params.dayId!, req.body, req.ctx);
       res.status(201).json({ data });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+plansRouter.delete(
+  '/days/:dayId',
+  validate({ params: z.object({ dayId: z.string().uuid() }) }),
+  async (req, res, next) => {
+    try {
+      if (!req.ctx) throw new DomainError('AUTH_REQUIRED', '');
+      const data = await service.deletePlanDay(req.params.dayId!, req.ctx);
+      res.json({ data });
     } catch (err) {
       next(err);
     }

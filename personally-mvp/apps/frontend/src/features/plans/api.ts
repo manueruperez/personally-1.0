@@ -95,7 +95,17 @@ export const plansApi = {
     api.post<PlanItemDto>(`/api/v1/plans/days/${dayId}/items`, body),
   deleteItem: (itemId: string) =>
     api.delete<{ deleted: boolean }>(`/api/v1/plans/items/${itemId}`),
+  addDay: (weekId: string, body: AddPlanDayPayload) =>
+    api.post<PlanDayDto>(`/api/v1/plans/weeks/${weekId}/days`, body),
+  deleteDay: (dayId: string) =>
+    api.delete<{ deleted: boolean }>(`/api/v1/plans/days/${dayId}`),
 };
+
+export interface AddPlanDayPayload {
+  dayOfWeek: number;
+  focus?: string | null;
+  isRestDay?: boolean;
+}
 
 export interface AddPlanItemPayload {
   exerciseId: string;
