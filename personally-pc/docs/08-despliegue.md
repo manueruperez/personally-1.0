@@ -104,6 +104,7 @@ Entrenador (browser) ──→│  Caddy :443 ─→ /            → frontend e
 - [ ] UptimeRobot (free) contra `/health` y `/api/v1/agent/status` con alerta a tu correo.
 - [ ] Credenciales del panel para el entrenador + mini-guía de uso (1 página).
 - [ ] Plan demo cargado con `plan_day` para los días en que va a probar.
+- [ ] Nota: el CSV ya **no** es obligatorio — el trainer puede cargar la rutina 100% desde la UI (agregar/eliminar días y ejercicios desde el editor del plan, con el plan en `draft`).
 
 ---
 

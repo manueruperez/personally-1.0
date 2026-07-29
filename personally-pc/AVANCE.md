@@ -190,6 +190,7 @@ Estado del monorepo `personally-mvp/` construido sobre las specs de esta carpeta
 - **Swap de ejercicio inline**: click en el nombre del ejercicio en `PlanWeekView` → dialog con buscador del catálogo → `PATCH /plans/items/:id { exerciseId }` valida ownership + que el nuevo ejercicio sea accesible.
 - **Notas + cues expandibles** por item: chevron para abrir/cerrar, textareas con autocommit on blur.
 - **Add/remove ejercicios** en un día: botón "+ Agregar" por bloque abre el picker, X al final de cada fila borra con confirmación.
+- **Add/remove días desde la UI (sin CSV)**: `POST /plans/weeks/:weekId/days` y `DELETE /plans/days/:dayId`, ambos solo sobre planes `draft` y con ownership vía `week.plan { organizationId, trainerId }`. En `PlanWeekView` el empty state ofrece CSV **o** "Agregar día", hay botón al final de la semana mientras queden días libres (<7) y un trash por día con confirmación (cascade a items). El dialog pide día de la semana (los ya usados quedan deshabilitados), focus opcional y checkbox de descanso. Con esto el trainer arma una rutina 100% desde el panel — antes los `plan_days` solo nacían del import CSV.
 - **Traducción del catálogo top 50+**: script `libs/db/src/scripts/translate-catalog.ts` con 90 términos mapeados. Ejecutado en DB → 24 ejercicios traducidos del free-exercise-db.
 
 ### 🧩 Features de panel construidos
