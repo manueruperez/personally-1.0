@@ -451,3 +451,53 @@ export async function deletePlanWeek(
 
   return { deletedWeekNumber: weekNumber };
 }
+
+export interface AddPlanDayInput {
+  dayOfWeek: number; // 1..7, validado en route
+  focus?: string | null;
+  isRestDay?: boolean;
+}
+
+export async function addPlanDay(weekId: string, input: AddPlanDayInput, ctx: AuthContext) {
+  const week = await prisma.planWeek.findFirst({
+    where: {
+      id: weekId,
+      plan: { organizationId: ctx.organizationId, trainerId: ctx.trainerId },
+    },
+    include: { plan: true },
+  });
+  if (!week) throw new DomainError('NOT_FOUND', 'Semana no encontrada');
+  if (week.plan.status !== 'draft') {
+    throw new DomainError('CONFLICT', 'Solo se pueden agregar dias a planes en estado draft');
+  }
+  const existing = await prisma.planDay.findFirst({
+    where: { planWeekId: weekId, dayOfWeek: input.dayOfWeek },
+  });
+  if (existing) {
+    throw new DomainError('CONFLICT', 'Ya existe un dia para ese dia de la semana');
+  }
+  return prisma.planDay.create({
+    data: {
+      planWeekId: weekId,
+      dayOfWeek: input.dayOfWeek,
+      focus: input.focus ?? null,
+      isRestDay: input.isRestDay ?? false,
+    },
+  });
+}
+
+export async function deletePlanDay(dayId: string, ctx: AuthContext) {
+  const day = await prisma.planDay.findFirst({
+    where: {
+      id: dayId,
+      week: { plan: { organizationId: ctx.organizationId, trainerId: ctx.trainerId } },
+    },
+    include: { week: { include: { plan: true } } },
+  });
+  if (!day) throw new DomainError('NOT_FOUND', 'Dia de plan no encontrado');
+  if (day.week.plan.status !== 'draft') {
+    throw new DomainError('CONFLICT', 'Solo se pueden eliminar dias de planes en estado draft');
+  }
+  await prisma.planDay.delete({ where: { id: dayId } }); // cascade borra items
+  return { deleted: true as const };
+}
