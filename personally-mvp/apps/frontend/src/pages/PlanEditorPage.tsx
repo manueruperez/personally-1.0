@@ -137,6 +137,7 @@ export function PlanEditorPage() {
           week={week}
           planId={plan.id}
           editable={plan.status !== 'archived'}
+          canEditDays={plan.status === 'draft'}
           canDelete={plan.status === 'draft' && plan.weeks.length > 1}
           deleting={deleteWeek.isPending}
           onDelete={() => {
