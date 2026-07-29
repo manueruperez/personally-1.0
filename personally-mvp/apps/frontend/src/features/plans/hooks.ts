@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   plansApi,
+  type AddPlanDayPayload,
   type AddPlanItemPayload,
   type CreatePlanDraftPayload,
   type UpdatePlanItemPayload,
@@ -123,6 +124,27 @@ export function useDeletePlanItem(planId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (itemId: string) => plansApi.deleteItem(itemId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...KEY, planId] });
+    },
+  });
+}
+
+export function useAddPlanDay(planId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ weekId, body }: { weekId: string; body: AddPlanDayPayload }) =>
+      plansApi.addDay(weekId, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...KEY, planId] });
+    },
+  });
+}
+
+export function useDeletePlanDay(planId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dayId: string) => plansApi.deleteDay(dayId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [...KEY, planId] });
     },
