@@ -29,9 +29,12 @@ vi.mock('../logger.js', () => ({
 }));
 
 const { WhatsAppWebJsChannel } = await import('./whatsapp-webjs.js');
+type ApiClient = ConstructorParameters<typeof WhatsAppWebJsChannel>[0]['api'];
 
 function makeChannel() {
-  return new WhatsAppWebJsChannel({ agentVersion: '0.1.0', dataPath: '/tmp/wwebjs-test' });
+  // El canal solo usa `api` para reportar estado de sesion; send() no lo toca.
+  const api = { postSessionState: vi.fn() } as unknown as ApiClient;
+  return new WhatsAppWebJsChannel({ agentVersion: '0.1.0', api, dataPath: '/tmp/wwebjs-test' });
 }
 
 beforeEach(() => {
