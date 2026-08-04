@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import qrcodeTerminal from 'qrcode-terminal';
 import pkg from 'whatsapp-web.js';
@@ -151,6 +152,15 @@ export class WhatsAppWebJsChannel implements MessagingChannel {
 
     try {
       const sent = await doSend();
+      // whatsapp-web.js >=1.34.6 devuelve `undefined` aunque el mensaje SI se entrega
+      // (verificado en produccion 2026-08-03: llega al telefono con retorno undefined).
+      // Es secuela de la migracion de WhatsApp a LID. Un fallo real de envio lanza
+      // excepcion y cae en el catch, asi que un retorno vacio se trata como entregado
+      // con un id no confirmado — antes se marcaba como fallido y el historial mentia.
+      if (!sent?.id?._serialized) {
+        logger.warn('sendMessage devolvio vacio; se asume entregado con id no confirmado');
+        return { externalId: `unconfirmed-${randomUUID()}`, sentAt: new Date() };
+      }
       return {
         externalId: sent.id._serialized,
         sentAt: new Date(sent.timestamp * 1000),
@@ -170,6 +180,9 @@ export class WhatsAppWebJsChannel implements MessagingChannel {
       try {
         await this.client.getState().catch(() => undefined);
         const sent = await doSend();
+        if (!sent?.id?._serialized) {
+          return { externalId: `unconfirmed-${randomUUID()}`, sentAt: new Date() };
+        }
         return {
           externalId: sent.id._serialized,
           sentAt: new Date(sent.timestamp * 1000),
@@ -209,6 +222,26 @@ export class WhatsAppWebJsChannel implements MessagingChannel {
     if (raw.from.endsWith('@g.us')) return;
     // Filtro: ignorar mensajes del propio bot
     if (raw.fromMe) return;
+
+    // DIAGNOSTICO TEMPORAL — forma real de id/from y resolucion del telefono (LID).
+    try {
+      const contact = await raw.getContact();
+      logger.warn(
+        {
+          diag: 'incoming-shape',
+          rawFrom: raw.from,
+          idKeys: raw.id ? Object.keys(raw.id) : null,
+          idSerialized: raw.id?._serialized ?? null,
+          idRemote: (raw.id as { remote?: unknown })?.remote ?? null,
+          contactNumber: contact?.number ?? null,
+          contactIdUser: contact?.id?.user ?? null,
+          contactIdServer: contact?.id?.server ?? null,
+        },
+        'DIAG incoming',
+      );
+    } catch (e) {
+      logger.warn({ diag: 'incoming-shape-failed', err: String(e) }, 'DIAG incoming fallo');
+    }
 
     const incoming: IncomingMessage = {
       externalId: raw.id._serialized,
