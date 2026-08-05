@@ -17,6 +17,9 @@ import type { ApiClient } from '../api-client.js';
 
 const { Client, LocalAuth, MessageMedia } = pkg;
 
+/** Margen tras `authenticated` antes de dar la sesion por usable sin `ready`. */
+const READY_FALLBACK_MS = 45_000;
+
 export interface WhatsAppWebJsOptions {
   agentVersion: string;
   api: ApiClient;
@@ -35,6 +38,7 @@ export class WhatsAppWebJsChannel implements MessagingChannel {
   private readonly incomingHandlers: IncomingMessageHandler[] = [];
   private readonly stateHandlers: SessionStateHandler[] = [];
   private readonly agentVersion: string;
+  private readyFallbackTimer: NodeJS.Timeout | null = null;
 
   constructor(opts: WhatsAppWebJsOptions) {
     this.agentVersion = opts.agentVersion;
@@ -55,9 +59,11 @@ export class WhatsAppWebJsChannel implements MessagingChannel {
     this.client.on('authenticated', () => {
       this.qr = null;
       this.setState('authenticating');
+      this.armReadyFallback();
     });
 
     this.client.on('ready', () => {
+      this.clearReadyFallback();
       this.setState('online');
       logger.info('WhatsApp listo');
     });
@@ -71,6 +77,33 @@ export class WhatsAppWebJsChannel implements MessagingChannel {
     });
 
     this.client.on('message', (m) => this.handleIncoming(m).catch((err) => logger.error({ err })));
+  }
+
+  /**
+   * whatsapp-web.js 1.34.x deja de emitir `ready` contra WhatsApp Web 2.3000.x
+   * (bug abierto upstream desde ene-2026). El outbox solo drena en `online`, asi
+   * que sin este respaldo la sesion queda autenticada pero inutil. Pasado el
+   * margen damos la sesion por usable; si en realidad no lo esta, el envio falla
+   * por su propia via y queda registrado como error.
+   */
+  private armReadyFallback(): void {
+    this.clearReadyFallback();
+    this.readyFallbackTimer = setTimeout(() => {
+      this.readyFallbackTimer = null;
+      if (this.state !== 'authenticating') return;
+      logger.warn(
+        { afterMs: READY_FALLBACK_MS },
+        'ready nunca llego; se asume sesion usable (workaround wwebjs)',
+      );
+      this.setState('online', { readyFallback: true });
+    }, READY_FALLBACK_MS);
+  }
+
+  private clearReadyFallback(): void {
+    if (this.readyFallbackTimer) {
+      clearTimeout(this.readyFallbackTimer);
+      this.readyFallbackTimer = null;
+    }
   }
 
   private setState(s: SessionState, meta?: Record<string, unknown>) {

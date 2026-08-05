@@ -11,6 +11,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const sendMessageMock = vi.fn();
 const clientOnMock = vi.fn();
 
+/** Dispara el handler que el canal registro para un evento del cliente. */
+function emit(event: string, ...args: unknown[]): void {
+  for (const [name, handler] of clientOnMock.mock.calls as [string, (...a: unknown[]) => void][]) {
+    if (name === event) handler(...args);
+  }
+}
+
 vi.mock('whatsapp-web.js', () => {
   class Client {
     on = clientOnMock;
@@ -96,5 +103,52 @@ describe('WhatsAppWebJsChannel.send', () => {
     const b = await channel.send('+573001234567', { contentType: 'text', text: 'dos' });
 
     expect(a.externalId).not.toBe(b.externalId);
+  });
+});
+
+/**
+ * whatsapp-web.js 1.34.x dejo de emitir `ready` contra WhatsApp Web 2.3000.x.
+ * El outbox solo drena en `online`, asi que sin respaldo la sesion queda
+ * autenticada pero inservible.
+ */
+describe('respaldo cuando `ready` nunca llega', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  it('pasa a online tras el margen si solo hubo authenticated', () => {
+    const channel = makeChannel();
+    const states: string[] = [];
+    channel.onSessionStateChange((s) => states.push(s));
+
+    emit('authenticated');
+    expect(states).toEqual(['authenticating']);
+
+    vi.advanceTimersByTime(45_000);
+    expect(states).toEqual(['authenticating', 'online']);
+  });
+
+  it('si `ready` llega a tiempo no emite online duplicado', () => {
+    const channel = makeChannel();
+    const states: string[] = [];
+    channel.onSessionStateChange((s) => states.push(s));
+
+    emit('authenticated');
+    emit('ready');
+    vi.advanceTimersByTime(60_000);
+
+    expect(states).toEqual(['authenticating', 'online']);
+  });
+
+  it('no fuerza online si la sesion cayo mientras corria el margen', () => {
+    const channel = makeChannel();
+    const states: string[] = [];
+    channel.onSessionStateChange((s) => states.push(s));
+
+    emit('authenticated');
+    emit('disconnected', 'LOGOUT');
+    vi.advanceTimersByTime(60_000);
+
+    expect(states).toEqual(['authenticating', 'offline']);
   });
 });
