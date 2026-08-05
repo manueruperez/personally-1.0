@@ -256,29 +256,9 @@ export class WhatsAppWebJsChannel implements MessagingChannel {
     // Filtro: ignorar mensajes del propio bot
     if (raw.fromMe) return;
 
-    // DIAGNOSTICO TEMPORAL — forma real de id/from y resolucion del telefono (LID).
-    try {
-      const contact = await raw.getContact();
-      logger.warn(
-        {
-          diag: 'incoming-shape',
-          rawFrom: raw.from,
-          idKeys: raw.id ? Object.keys(raw.id) : null,
-          idSerialized: raw.id?._serialized ?? null,
-          idRemote: (raw.id as { remote?: unknown })?.remote ?? null,
-          contactNumber: contact?.number ?? null,
-          contactIdUser: contact?.id?.user ?? null,
-          contactIdServer: contact?.id?.server ?? null,
-        },
-        'DIAG incoming',
-      );
-    } catch (e) {
-      logger.warn({ diag: 'incoming-shape-failed', err: String(e) }, 'DIAG incoming fallo');
-    }
-
     const incoming: IncomingMessage = {
-      externalId: raw.id._serialized,
-      from: fromChatId(raw.from),
+      externalId: resolveExternalId(raw),
+      from: await this.resolvePhone(raw),
       receivedAt: new Date(raw.timestamp * 1000),
       contentType: mapContentType(raw.type),
       text: raw.body || undefined,
@@ -289,6 +269,41 @@ export class WhatsAppWebJsChannel implements MessagingChannel {
       await h(incoming);
     }
   }
+
+  /**
+   * Telefono real del remitente en E.164.
+   *
+   * Con LID, `msg.from` llega como `<id>@lid` y `contact.number` devuelve ese
+   * mismo LID, no el telefono — mapearlo por cualquiera de los dos hace que
+   * ningun cliente matchee. El numero real vive en `contact.id.user` cuando el
+   * servidor del contacto es `c.us`.
+   */
+  private async resolvePhone(raw: pkg.Message): Promise<string> {
+    if (!raw.from.endsWith('@lid')) return fromChatId(raw.from);
+    try {
+      const contact = await raw.getContact();
+      const { user, server } = contact?.id ?? {};
+      if (server === 'c.us' && user) return `+${user}`;
+      logger.warn({ from: raw.from, user, server }, 'LID sin telefono resoluble en el contacto');
+    } catch (err) {
+      logger.warn({ from: raw.from, err: String(err) }, 'no se pudo resolver el LID a telefono');
+    }
+    return fromChatId(raw.from);
+  }
+}
+
+/**
+ * Id del mensaje para deduplicar/auditar.
+ *
+ * WhatsApp Web 2.3000.x dejo de exponer `_serialized` (queda `undefined` y el
+ * API rechazaba el mensaje con 422, dejando al bot mudo). Cuando falta, se
+ * reconstruye el formato canonico `fromMe_remote_id` a partir de las partes.
+ */
+function resolveExternalId(raw: pkg.Message): string {
+  const id = raw.id as Partial<pkg.MessageId> | undefined;
+  if (id?._serialized) return id._serialized;
+  if (id?.remote && id?.id) return `${id.fromMe ? 'true' : 'false'}_${id.remote}_${id.id}`;
+  return `incoming-${randomUUID()}`;
 }
 
 function toChatId(phoneE164: string): string {
