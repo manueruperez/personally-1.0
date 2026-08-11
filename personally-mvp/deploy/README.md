@@ -40,14 +40,81 @@ docker compose exec \
   -e BOOTSTRAP_PASSWORD=... -e BOOTSTRAP_ORG_NAME="..." \
   api pnpm --filter @personally/db bootstrap:trainer
 
-# 7. Agente (con AGENT_TRAINER_ID ya en .env)
+# 7. Agente (con AGENT_TRAINER_ID ya en .env). Ver "Canal de WhatsApp" abajo.
 docker compose up -d agent
-# → abrir https://DOMINIO/agent y escanear el QR con el WhatsApp del bot.
+# → con CHANNEL=wwebjs (default): abrir https://DOMINIO/agent y escanear el QR.
 #   La sesión persiste en el volumen wwebjs_auth (reinicios no piden QR).
+# → con CHANNEL=cloud: no hay QR ni sesión que mantener.
 
 # 8. Smoke test
 ./smoke.sh <dominio>
 ```
+
+## Canal de WhatsApp
+
+El agente habla WhatsApp por uno de dos canales, elegido con `CHANNEL` en el `.env`:
+
+| | `wwebjs` (default) | `cloud` |
+|---|---|---|
+| Cómo funciona | Automatiza WhatsApp Web en un Chromium headless | Cloud API oficial de Meta |
+| Alta | Escanear QR en `/agent` | Token permanente en `.env` |
+| Entrantes | Evento de Puppeteer en el proceso del agente | Webhook `POST /api/v1/webhooks/whatsapp` |
+| Riesgo | Se rompe con cada cambio de WhatsApp Web; el número puede ser baneado | Contrato estable |
+| Costo | $0 | Solo la plantilla que abre conversación (~USD 0.01-0.02) |
+
+`wwebjs` es el default a propósito: un deploy sin la variable seteada se comporta
+como siempre. Cambiar de canal es editar `.env` y reiniciar — sin rebuild.
+
+### Pasar a Cloud API
+
+Requisitos previos (los hace Juan en el panel de Meta, ver
+`personally-pc/planes-dev/2026-08-05-migracion-whatsapp-cloud-api/`):
+
+1. Número dedicado registrado en la WhatsApp Business Account.
+2. Plantilla `greeting` **aprobada**, categoría *utility*, idioma `es`.
+3. App **publicada**. Sin publicar, Meta solo entrega webhooks de prueba del
+   panel: el bot puede mandar mensajes pero nunca se entera de las respuestas.
+4. Método de pago cargado en la WABA (requisito para mensajes iniciados por la
+   empresa, aunque el consumo termine en $0).
+5. Webhook dado de alta con la URL de arriba **y suscripto al campo `messages`**.
+   Dar de alta el endpoint no suscribe: son dos pasos y el segundo se olvida.
+
+Después, en el `.env` del deploy:
+
+```bash
+CHANNEL=cloud
+WHATSAPP_PHONE_NUMBER_ID=...      # panel de WhatsApp → Configuración de la API
+WHATSAPP_ACCESS_TOKEN=...         # token permanente, no el temporal de 24h
+WHATSAPP_APP_SECRET=...           # Configuración de la app → Básica
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=... # lo inventás vos: openssl rand -hex 32
+
+docker compose up -d --force-recreate agent api
+```
+
+### Rollback
+
+```bash
+sed -i 's/^CHANNEL=.*/CHANNEL=wwebjs/' .env && docker compose up -d --force-recreate agent
+```
+
+El canal viejo queda intacto hasta que se elimine `whatsapp-web.js` del repo,
+cosa que recién se hace tras validar Cloud API con clientes reales.
+
+### Verificar el webhook sin esperar a Meta
+
+```bash
+# Challenge de alta: debe devolver el challenge en texto plano
+curl "https://DOMINIO/api/v1/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=$TOKEN&hub.challenge=OK123"
+
+# Token incorrecto: debe dar 403 y NO devolver el challenge
+curl "https://DOMINIO/api/v1/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=malo&hub.challenge=OK123"
+
+# POST sin firma válida: debe dar 401
+curl -X POST -H 'Content-Type: application/json' -d '{}' https://DOMINIO/api/v1/webhooks/whatsapp
+```
+
+Si los POST de Meta dan 401 en los logs del api, falta `WHATSAPP_APP_SECRET`.
+Meta reintenta un rato y después **desactiva la suscripción sola**.
 
 ## Operación
 
@@ -97,3 +164,9 @@ El agente puede levantarse igual (`up -d agent`) pero pedirá QR — solo escane
 - El rebuild del frontend requiere `docker compose build caddy` (las VITE_* se hornean al build).
 - Postgres no está expuesto a internet: administrar con `docker compose exec postgres psql -U postgres personally`.
 - Si cambia `DOMAIN`: rebuild de `caddy` (frontend horneado) y `docker compose up -d`.
+- Cambios de schema (ej. valores nuevos de enum) necesitan
+  `docker compose exec api pnpm --filter @personally/db push` **después** del
+  build, para que el push corra con el schema nuevo y no con el de la imagen vieja.
+- Las credenciales de Cloud API nunca van al build de `caddy`: el frontend se
+  sirve al público y hornearlas ahí las expondría. Hay un test que lo verifica
+  (`deploy/tests/compose.test.ts`).

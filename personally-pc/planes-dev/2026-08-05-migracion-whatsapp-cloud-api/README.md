@@ -2,16 +2,29 @@
 
 *Creado: 2026-08-05. Actualizado: 2026-08-10.*
 
-**Estado: pasos 1-3 implementados y testeados; 4-6 pendientes.** Los trámites de Meta (sección 2) siguen sin arrancar y son la ruta crítica. Corrección al plan original: los pasos 1-4 sí se pueden escribir sin credenciales (tests con `fetch` mockeado); lo que realmente depende de los trámites es el paso 5, la validación E2E y el deploy con `CHANNEL=cloud`.
+**Estado: los 6 pasos de código están hechos y desplegados.** Falta lo que depende de Meta: aprobación de la plantilla, corregir el nombre visible y publicar la app. El agente sigue en `CHANNEL=wwebjs` hasta validar el envío.
+
+Corrección al plan original: los pasos 1-4 sí se podían escribir sin credenciales (tests con `fetch` mockeado). Lo que realmente dependía de los trámites era el paso 5 y el E2E.
 
 | Paso | Estado | Dónde |
 |---|---|---|
 | 1. Cliente HTTP | ✅ 12 tests | `apps/agent/src/channels/cloud-api/client.ts` |
-| 2. `CloudApiChannel` | ✅ 12 tests | `apps/agent/src/channels/cloud-api/channel.ts` |
+| 2. `CloudApiChannel` | ✅ 16 tests | `apps/agent/src/channels/cloud-api/channel.ts` |
 | 3. Selección por env | ✅ 8 tests | `apps/agent/src/channels/factory.ts` |
-| 4. Webhook de entrada | ⬜ | `apps/api` |
-| 5. Plantilla del saludo | ⬜ bloqueado por Meta | — |
-| 6. Docs y corte | ⬜ | — |
+| 4. Webhook de entrada | ✅ 21 tests, verificado en prod | `apps/api/src/modules/webhooks/` |
+| 5. Plantilla del saludo | ✅ código listo; falta que Meta apruebe | `internal/templates.ts` |
+| 6. Docs y corte | ✅ | `deploy/README.md`, `08-despliegue.md` |
+
+**Fuera del plan pero necesario, descubierto sobre la marcha:**
+
+- **La app tiene que estar publicada.** Sin publicar, Meta solo entrega webhooks de prueba del panel — el bot puede mandar pero nunca se entera de las respuestas. Publicar exige una URL de política de privacidad, así que se agregó `/privacy` (público, fuera de los layouts con auth).
+- **Keyword BAJA.** La política promete que frena los mensajes; el NLU lo clasificaba como `UNKNOWN`. Implementado: el cliente pasa a `paused` y se notifica al entrenador.
+- **Un solo `{{1}}` no sirve.** Meta rechaza plantillas cuyo cuerpo es casi todo variable, así que el saludo va con 3 variables y el dispatcher las manda por separado.
+- **Método de pago obligatorio** en la WABA para mensajes iniciados por la empresa, aunque el consumo termine en $0.
+
+**Datos de producción:** WABA `2766435227086032` · número `+57 317 3972519` · `PHONE_NUMBER_ID` `1248053345059104`.
+
+**Pendiente de higiene:** rotar el `APP_SECRET` (quedó expuesto en un chat durante el setup) una vez validado el E2E.
 
 ## 1. Por qué
 

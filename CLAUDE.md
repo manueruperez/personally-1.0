@@ -6,10 +6,11 @@ SaaS de automatización de rutinas de entrenamiento por WhatsApp. Trainer diseñ
 
 - **`personally-mvp/`** — código del MVP (monorepo pnpm + TypeScript).
   - `apps/api` — Express + Prisma (:3000). Cron interno `daily-bootstrap`.
-  - `apps/agent` — `whatsapp-web.js` + LocalAuth + supervisor con respawn.
+  - `apps/agent` — canal de WhatsApp elegido por `CHANNEL`: `wwebjs` (whatsapp-web.js + LocalAuth + supervisor con respawn, default) o `cloud` (Cloud API oficial, sin Chromium ni QR).
   - `apps/frontend` — React + Vite (:5173).
   - `apps/scheduler` — stub, la cron real vive en el API.
   - `libs/` — core rules, nlu (keywords), db (Prisma), messaging (abstracción de canal), engine (state machine), exercises (catálogo).
+  - Webhook de entrada de la Cloud API: `apps/api/src/modules/webhooks/`.
 
 - **`personally-pc/`** — documentación del proyecto.
   - `AVANCE.md` — estado actual del MVP (fuente operativa).
@@ -30,7 +31,9 @@ pnpm api:dev                    # API :3000
 pnpm agent:supervised           # agente WhatsApp con auto-respawn
 pnpm frontend:dev               # frontend :5173
 
-pnpm vitest run                 # tests (167/167 al 2026-04-20)
+pnpm vitest run                 # tests (358/358 al 2026-08-10)
+# Ojo: correr los 5 proyectos juntos aborta con SIGABRT en la Mac de Juan (bug
+# de entorno, previo a la migracion). Por proyecto anda: pnpm vitest run --project api
 
 # DB
 pnpm db:generate                # Prisma client

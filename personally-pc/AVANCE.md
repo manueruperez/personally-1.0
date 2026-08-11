@@ -1,8 +1,15 @@
 # Avance del MVP — Personally 1.0
 
-*Última actualización: 2026-04-18 (sesión 2: dispatcher + conversación)*
+*Última actualización: 2026-08-10 (migración del canal a WhatsApp Cloud API)*
 
 Estado del monorepo `personally-mvp/` construido sobre las specs de esta carpeta.
+
+> **Lo más reciente (2026-08-10):** el canal de WhatsApp se migró a la Cloud API
+> oficial de Meta. Todo el código está hecho, desplegado y verificado en
+> producción; el agente sigue corriendo en `wwebjs` hasta que Meta apruebe la
+> plantilla del saludo. Detalle y pendientes en
+> `planes-dev/2026-08-05-migracion-whatsapp-cloud-api/` y en
+> `docs/08-despliegue.md` → "Canal de WhatsApp".
 
 ---
 
@@ -230,14 +237,19 @@ Estado del monorepo `personally-mvp/` construido sobre las specs de esta carpeta
 10. ✅ **Traducción catálogo top 50+**.
 
 ### 📋 Pendiente antes de piloto real
-9. ✅ **Tests** — 167/167 pasando. Cubren: dispatcher + defer semantics + PAIN auto-skip + exercise image routing, dashboard service, today-session, notifications/reply + list + markRead, plans/items PATCH + add + delete + swap, startup-sanity, EditableCell, TRANSLATIONS map, TodaySessionCard (7), DashboardPage (6), NotificationsPage (6).
+9. ✅ **Tests** — 358/358 pasando (167 al 2026-04-20, +191 con webhook, canal Cloud API, plantillas, BAJA y privacidad). Cubren: dispatcher + defer semantics + PAIN auto-skip + exercise image routing, dashboard service, today-session, notifications/reply + list + markRead, plans/items PATCH + add + delete + swap, startup-sanity, EditableCell, TRANSLATIONS map, TodaySessionCard (7), DashboardPage (6), NotificationsPage (6).
 10. ✅ **Imágenes** ejercicios UI + WhatsApp.
 11. ✅ **Traducción catálogo top 50+** (90 términos).
 12. **Revisar copy de templates con el trainer** (trabajo editorial, no dev — compartir con el amigo).
 13. **Onboarding manual del trainer piloto** (protocolo, no código).
 
 ### 📋 Hand-off al trainer (no código)
-- **Revisar copy de templates** con el trainer (greeting, exercise_card, finish, unknown, pain_ack, change_ack). Trabajo editorial, 30 min de su tiempo + 30 min tuyos.
+- **Revisar copy de templates** con el trainer (greeting, exercise_card, finish, unknown, pain_ack, change_ack, stop_ack). Trabajo editorial, 30 min de su tiempo + 30 min tuyos.
+  ⚠️ El copy de `greeting` ahora está **congelado en Meta**: cambiarlo exige mandar
+  la plantilla a revisión de nuevo (24-48h). Revisarlo con el trainer **antes** de
+  aprobarla, no después.
+- **Revisar el texto de `/privacy`** — es un borrador de trabajo, no asesoría legal.
+  Compromete a Personallay frente a los clientes finales.
 - **Onboarding presencial**: sentarte 1h con él para cargar sus 2-3 clientes + CSVs de planes + setear timezone y hora preferida de cada cliente.
 - **Acceso al panel**: darle URL + credencial Supabase.
 

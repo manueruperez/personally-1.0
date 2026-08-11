@@ -1,6 +1,6 @@
 # 08 — Despliegue
 
-*Creado: 2026-07-25. Actualizado: 2026-07-28 — infra real contratada (dominios + VPS).*
+*Creado: 2026-07-25. Actualizado: 2026-08-10 — canal migrado a WhatsApp Cloud API.*
 
 ---
 
@@ -41,6 +41,56 @@
   ⚠️ El remote de GitHub (`manueruperez/personally-1.0`) está 2 commits atrás y **no tiene la infra de deploy** — hasta hacer push, la Mac es la fuente de verdad y los redeploys van por rsync.
 
 **Contexto de la demo:** un entrenador de una universidad va a probar el producto de forma remota durante días/semanas. La demo NO puede depender de las PCs de Juan → todo en un VPS.
+
+---
+
+## Canal de WhatsApp: migración a Cloud API (2026-08-10)
+
+`whatsapp-web.js` dejó de ser viable: en la semana del 2026-07-29 se rompió tres
+veces (`sendMessage` devolviendo `undefined`, el evento `ready` dejando de
+emitirse, la migración de WhatsApp a LID que dejó al bot mudo), son bugs
+abiertos upstream sin solución oficial, y automatizar WhatsApp Web viola los
+términos de servicio con riesgo de baneo del número.
+
+El canal se abstrae detrás de `MessagingChannel` (`libs/messaging`), así que la
+migración no tocó el dispatcher, la state machine, el catálogo ni el panel.
+
+### Qué cambia
+
+| Con `wwebjs` | Con `cloud` |
+|---|---|
+| QR + LocalAuth en volumen | Token permanente en `.env` |
+| Chromium headless (~0.5-1 GB RAM) | Solo HTTP: sin navegador |
+| Estado de sesión (`online`/`qr_required`) | Siempre `online` |
+| Evento de Puppeteer | Webhook `POST /api/v1/webhooks/whatsapp` |
+| `externalId` interno de WA | `wamid.*` que devuelve la API |
+| $0 | Solo la plantilla que abre conversación |
+
+### Estado
+
+- [x] Canal `CloudApiChannel` + fábrica por `CHANNEL` (default `wwebjs`).
+- [x] Webhook de entrada con validación de firma `X-Hub-Signature-256`,
+      desplegado y verificado en producción (2026-08-10).
+- [x] `/privacy` pública — Meta la exige para publicar la app, y sin app
+      publicada los webhooks no entregan mensajes de producción.
+- [x] Keyword **BAJA**: el cliente pasa a `paused` y se notifica al entrenador.
+      Es lo que promete la política de privacidad.
+- [x] Número dedicado `+57 317 3972519` registrado en la WABA.
+- [ ] Plantilla `greeting` aprobada por Meta (24-48h de revisión).
+- [ ] Nombre visible corregido: quedó `personally`, debe ser `Personallay`.
+- [ ] App publicada.
+- [ ] `CHANNEL=cloud` en producción + E2E real.
+
+**El agente sigue en `wwebjs` a propósito** hasta validar el envío. El rollback
+es cambiar la variable y reiniciar, sin redeploy.
+
+### Lo que NO se hizo todavía
+
+Eliminar `whatsapp-web.js` del repo y aligerar el Dockerfile del agente quitando
+Chromium. Se hace en una limpieza posterior, recién tras validar Cloud API con
+clientes reales — hasta entonces el canal viejo es la red de seguridad.
+
+Runbook operativo: `personally-mvp/deploy/README.md` → "Canal de WhatsApp".
 
 ---
 
@@ -155,7 +205,7 @@ Entrenador (browser) ──→│  Caddy :443 ─→ /            → frontend e
 
 La base ya queda bien parada (VPS + Docker + dominio + backups). Lo que falta para producción:
 
-1. **WhatsApp Cloud API oficial** — elimina Puppeteer/Chromium y el riesgo de ban. Costo por conversación (~USD 0.01-0.03) → ajustar pricing ([06-modelo-negocio.md](06-modelo-negocio.md)).
+1. ~~**WhatsApp Cloud API oficial**~~ — hecho el 2026-08-10, ver la sección de arriba. El costo resultó menor al estimado: las respuestas dentro de la ventana de 24h son gratis e ilimitadas, y solo se cobra la plantilla que abre la conversación.
 2. **Outbox a Redis/BullMQ** — sobrevive reinicios del API, habilita réplicas.
 3. **CI/CD** (GitHub Actions → build imágenes → deploy al VPS).
 4. Rate limiting + observability estructurada + alertas.
