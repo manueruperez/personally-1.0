@@ -3,6 +3,7 @@ import type { Intent } from '@personally/types';
 import { enqueue } from '../agent/outbox.js';
 import { logger } from '../../lib/logger.js';
 import {
+  buildDailyGreetingParams,
   renderDailyGreeting,
   renderExerciseCard,
   renderFinishMessage,
@@ -560,12 +561,12 @@ export async function sendDailyGreeting(params: {
     });
   }
 
-  const text = renderDailyGreeting({
+  const greetingCtx = {
     name: client.name,
     focus: planDay.focus,
     durationMin: planDay.estimatedDurationMin,
     exerciseCount: planDay.items.filter((i) => i.block === 'exercise').length,
-  });
+  };
 
   enqueue({
     trainerId: params.trainerId,
@@ -573,8 +574,11 @@ export async function sendDailyGreeting(params: {
     phone: client.phone,
     sessionId: session.id,
     contentType: 'text',
-    text,
+    // `text` lo usa el canal de whatsapp-web.js; `templateParams`, el de Cloud
+    // API. Se mandan los dos para que el mensaje sirva en cualquier canal.
+    text: renderDailyGreeting(greetingCtx),
     templateKey: 'greeting',
+    templateParams: buildDailyGreetingParams(greetingCtx),
     isTemplateBased: true,
   });
 }

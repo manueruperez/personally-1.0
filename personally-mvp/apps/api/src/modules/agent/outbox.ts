@@ -22,6 +22,7 @@ export interface OutboxMessage {
   mediaUrl?: string;
   caption?: string;
   templateKey?: string;
+  templateParams?: string[];
   isTemplateBased: boolean;
   enqueuedAt: string;
 }
@@ -39,6 +40,7 @@ export interface EnqueueInput {
   mediaUrl?: string;
   caption?: string;
   templateKey?: string;
+  templateParams?: string[];
   isTemplateBased?: boolean;
 }
 
@@ -55,6 +57,7 @@ export function enqueue(input: EnqueueInput): OutboxMessage {
     mediaUrl: input.mediaUrl,
     caption: input.caption,
     templateKey: input.templateKey,
+    templateParams: input.templateParams,
     isTemplateBased: input.isTemplateBased ?? false,
     enqueuedAt: new Date().toISOString(),
   };

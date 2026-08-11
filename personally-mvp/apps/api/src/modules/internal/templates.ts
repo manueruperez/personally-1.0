@@ -52,6 +52,44 @@ export function renderDailyGreeting(ctx: {
   return parts.join('\n');
 }
 
+/**
+ * Variables del saludo diario para la plantilla `greeting` de la Cloud API,
+ * en el orden de los placeholders:
+ *
+ *   ¡Hola {{1}}! 💪
+ *   Hoy: {{2}}
+ *   ⏱ {{3}}
+ *
+ * Vive al lado de `renderDailyGreeting` a proposito: los dos canales muestran
+ * lo mismo, uno como texto armado y el otro como plantilla, y si cambia el
+ * contenido tienen que cambiar juntos.
+ *
+ * Meta rechaza el envio si alguna variable llega vacia, con saltos de linea o
+ * con espacios de sobra — de ahi los fallbacks y el saneo.
+ */
+export function buildDailyGreetingParams(ctx: {
+  name: string;
+  focus: string | null;
+  durationMin: number | null;
+  exerciseCount: number;
+}): [string, string, string] {
+  const meta: string[] = [];
+  if (ctx.durationMin) meta.push(`~${ctx.durationMin} min`);
+  if (ctx.exerciseCount > 0) meta.push(`${ctx.exerciseCount} ejercicios`);
+
+  return [
+    sanitizeParam(ctx.name.split(' ')[0], 'Hola'),
+    sanitizeParam(ctx.focus, 'tu rutina del dia'),
+    sanitizeParam(meta.join(' · '), 'a tu ritmo'),
+  ];
+}
+
+/** Una variable de plantilla es una sola linea, sin espacios repetidos ni vacia. */
+function sanitizeParam(value: string | null | undefined, fallback: string): string {
+  const clean = (value ?? '').replace(/\s+/g, ' ').trim();
+  return clean.length > 0 ? clean : fallback;
+}
+
 export function renderFinishMessage(ctx: { name: string; completionRate: number }): string {
   const firstName = ctx.name.split(' ')[0];
   if (ctx.completionRate >= 1) {

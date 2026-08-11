@@ -82,6 +82,7 @@ async function processOne(
       mediaUrl: msg.mediaUrl,
       caption: msg.caption,
       templateKey: msg.templateKey,
+      templateParams: msg.templateParams,
     });
 
     await api.postOutgoing(msg.phone, {

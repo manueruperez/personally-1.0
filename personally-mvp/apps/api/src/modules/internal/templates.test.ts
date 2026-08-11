@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildDailyGreetingParams,
   renderDailyGreeting,
   renderExerciseCard,
   renderFinishMessage,
@@ -145,5 +146,58 @@ describe('constantes de texto', () => {
   it('son strings no vacios', () => {
     expect(TXT_NO_ACTIVE_PLAN.length).toBeGreaterThan(0);
     expect(TXT_REST_DAY.length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * Meta rechaza el envio si una variable llega vacia o con saltos de linea, y el
+ * 400 que devuelve no dice cual fue. Estos tests fijan ese contrato del lado
+ * nuestro.
+ */
+describe('buildDailyGreetingParams', () => {
+  const base = { name: 'Juan Manuel Perez', focus: 'Pierna', durationMin: 45, exerciseCount: 6 };
+
+  it('devuelve exactamente las 3 variables de la plantilla aprobada', () => {
+    expect(buildDailyGreetingParams(base)).toHaveLength(3);
+  });
+
+  it('usa solo el primer nombre, como el saludo de texto', () => {
+    expect(buildDailyGreetingParams(base)[0]).toBe('Juan');
+  });
+
+  it('arma duracion y cantidad de ejercicios en una sola linea', () => {
+    expect(buildDailyGreetingParams(base)[2]).toBe('~45 min · 6 ejercicios');
+  });
+
+  it('omite la duracion cuando el plan no la define', () => {
+    expect(buildDailyGreetingParams({ ...base, durationMin: null })[2]).toBe('6 ejercicios');
+  });
+
+  it('omite los ejercicios cuando el dia no tiene bloque de ejercicio', () => {
+    expect(buildDailyGreetingParams({ ...base, exerciseCount: 0 })[2]).toBe('~45 min');
+  });
+
+  it('cae a un fallback antes que mandar una variable vacia', () => {
+    const params = buildDailyGreetingParams({
+      name: 'Ana',
+      focus: null,
+      durationMin: null,
+      exerciseCount: 0,
+    });
+
+    expect(params).toEqual(['Ana', 'tu rutina del dia', 'a tu ritmo']);
+  });
+
+  it('nunca deja una variable vacia, aunque el foco sea espacios', () => {
+    const params = buildDailyGreetingParams({ ...base, focus: '   ' });
+
+    for (const p of params) expect(p.trim().length).toBeGreaterThan(0);
+  });
+
+  it('colapsa saltos de linea y espacios repetidos que Meta rechaza', () => {
+    const params = buildDailyGreetingParams({ ...base, focus: 'Pierna\n  y   core' });
+
+    expect(params[1]).toBe('Pierna y core');
+    for (const p of params) expect(p).not.toMatch(/[\n\t]|\s{2}/);
   });
 });

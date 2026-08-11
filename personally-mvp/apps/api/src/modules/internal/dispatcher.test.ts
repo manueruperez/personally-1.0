@@ -48,7 +48,7 @@ vi.mock('../../lib/logger.js', () => ({
 }));
 
 // Ahora si: importar el dispatcher
-const { dispatch } = await import('./dispatcher.js');
+const { dispatch, sendDailyGreeting } = await import('./dispatcher.js');
 
 // Helpers --------------------------------------------------------------------
 
@@ -648,5 +648,93 @@ describe('dispatch — UNKNOWN', () => {
     expect(result.triggeredAction).toBe('unknown_reply');
     expect(enqueueMock.mock.calls[0][0].templateKey).toBe('unknown_reply');
     expect(enqueueMock.mock.calls[0][0].text).toMatch(/iniciar/i);
+  });
+});
+
+/**
+ * El saludo diario es el unico mensaje que sale como plantilla de Meta, porque
+ * es el unico que se manda fuera de la ventana de 24h. Tiene que encolar el
+ * texto (para whatsapp-web.js) Y las variables (para la Cloud API): si falta
+ * alguno de los dos, uno de los canales queda roto.
+ */
+describe('sendDailyGreeting: plantilla y variables', () => {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prismaMock.client.findUniqueOrThrow.mockResolvedValue({
+      name: 'Juan Manuel Perez',
+      phone: '+573001234567',
+      organizationId: 'org-1',
+    });
+    prismaMock.plan.findFirst.mockResolvedValue({
+      id: 'plan-1',
+      startDate: today,
+      weeks: [
+        {
+          weekNumber: 1,
+          days: [
+            {
+              id: 'day-1',
+              dayOfWeek: 1,
+              isRestDay: false,
+              focus: 'Pierna',
+              estimatedDurationMin: 45,
+              items: [
+                { id: 'i1', block: 'warmup', exercise: { id: 'e1', nameEs: 'Movilidad' } },
+                { id: 'i2', block: 'exercise', exercise: { id: 'e2', nameEs: 'Sentadilla' } },
+                { id: 'i3', block: 'exercise', exercise: { id: 'e3', nameEs: 'Peso muerto' } },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    prismaMock.session.findFirst.mockResolvedValue(null);
+    prismaMock.session.create.mockResolvedValue({ id: 'sess-1' });
+  });
+
+  /** Fuerza el lunes para caer siempre en el unico dia que define el plan mock. */
+  function greet() {
+    process.env.TESTING_DOW = '1';
+    return sendDailyGreeting({ trainerId: 'tr-1', clientId: 'cl-1' });
+  }
+
+  afterEach(() => {
+    delete process.env.TESTING_DOW;
+  });
+
+  it('encola con templateKey greeting y marcado como plantilla', async () => {
+    await greet();
+
+    expect(enqueueMock).toHaveBeenCalledTimes(1);
+    const msg = enqueueMock.mock.calls[0][0];
+    expect(msg.templateKey).toBe('greeting');
+    expect(msg.isTemplateBased).toBe(true);
+  });
+
+  it('manda las 3 variables que espera la plantilla aprobada', async () => {
+    await greet();
+
+    expect(enqueueMock.mock.calls[0][0].templateParams).toEqual([
+      'Juan',
+      'Pierna',
+      '~45 min · 2 ejercicios',
+    ]);
+  });
+
+  it('cuenta solo el bloque de ejercicio, no el calentamiento', async () => {
+    await greet();
+
+    expect(enqueueMock.mock.calls[0][0].templateParams[2]).toContain('2 ejercicios');
+  });
+
+  it('sigue encolando el texto armado para el canal de whatsapp-web.js', async () => {
+    await greet();
+
+    const msg = enqueueMock.mock.calls[0][0];
+    expect(msg.text).toContain('Juan');
+    expect(msg.text).toContain('iniciar');
   });
 });

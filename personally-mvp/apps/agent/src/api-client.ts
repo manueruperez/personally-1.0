@@ -49,6 +49,7 @@ export interface OutboxMessage {
   mediaUrl?: string;
   caption?: string;
   templateKey?: string;
+  templateParams?: string[];
   isTemplateBased: boolean;
 }
 
