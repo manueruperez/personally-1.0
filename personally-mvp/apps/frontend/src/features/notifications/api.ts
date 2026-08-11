@@ -4,7 +4,8 @@ export type NotificationType =
   | 'change_request'
   | 'pain_report'
   | 'silent_client'
-  | 'agent_offline';
+  | 'agent_offline'
+  | 'opt_out';
 
 export interface NotificationDto {
   id: string;

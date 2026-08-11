@@ -107,6 +107,8 @@ export const TXT_PLAN_FUTURE = (startDate: string) =>
   `Tu plan arranca el ${startDate}. Nos vemos ese dia.`;
 export const TXT_PLAN_ENDED =
   'Tu plan termino. Habla con tu entrenador para armar el siguiente.';
+export const TXT_STOP_ACK =
+  'Listo, no te escribo mas. Si algun dia queres retomar, hablalo con tu entrenador. 🙌';
 export const TXT_REST_DAY =
   'Hoy es dia de descanso. Nos vemos mañana. 🌿';
 export const TXT_UNKNOWN_IN_SESSION =

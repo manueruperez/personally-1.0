@@ -101,3 +101,49 @@ describe('KeywordIntentClassifier', () => {
     });
   });
 });
+
+/**
+ * La baja es irreversible desde el lado del cliente: lo deja sin su rutina
+ * hasta que el entrenador lo reactive desde el panel. Por eso el riesgo grave
+ * no es no detectarla, sino detectarla de mas — y en un contexto de
+ * entrenamiento "baja" aparece todo el tiempo de forma inocente.
+ */
+describe('STOP: baja del cliente', () => {
+  const c = new KeywordIntentClassifier();
+
+  it.each(['baja', 'BAJA', 'Baja.', ' baja ', 'stop', 'cancelar', 'salir', 'unsubscribe'])(
+    'detecta la baja cuando el mensaje completo es "%s"',
+    async (text) => {
+      expect((await c.classify(text)).intent).toBe('STOP');
+    },
+  );
+
+  it.each([
+    'quiero darme de baja',
+    'no quiero recibir mas mensajes',
+    'por favor dejar de recibir estos mensajes',
+    'no me escribas mas',
+  ])('detecta la baja en la frase "%s"', async (text) => {
+    expect((await c.classify(text)).intent).toBe('STOP');
+  });
+
+  it.each([
+    'baja el peso',
+    'bajale a la carga',
+    'bajo mucho el ritmo hoy',
+    'hoy baje 2 kilos',
+    'me cuesta bajar en la sentadilla',
+  ])('NO da de baja por "%s"', async (text) => {
+    expect((await c.classify(text)).intent).not.toBe('STOP');
+  });
+
+  it('gana sobre otras keywords que aparezcan en el mismo mensaje', async () => {
+    expect((await c.classify('quiero darme de baja, listo')).intent).toBe('STOP');
+  });
+
+  it('no rompe los intents existentes', async () => {
+    expect((await c.classify('siguiente')).intent).toBe('NEXT');
+    expect((await c.classify('me duele el hombro')).intent).toBe('PAIN');
+    expect((await c.classify('iniciar', { sessionState: 'greeted' })).intent).toBe('START');
+  });
+});

@@ -23,7 +23,7 @@ const prismaMock = {
     findMany: vi.fn(),
   },
   notification: { create: vi.fn() },
-  client: { findUniqueOrThrow: vi.fn() },
+  client: { findUniqueOrThrow: vi.fn(), update: vi.fn() },
 };
 
 vi.mock('@personally/db', () => ({
@@ -736,5 +736,72 @@ describe('sendDailyGreeting: plantilla y variables', () => {
     const msg = enqueueMock.mock.calls[0][0];
     expect(msg.text).toContain('Juan');
     expect(msg.text).toContain('iniciar');
+  });
+});
+
+/**
+ * La politica de privacidad publicada promete que responder BAJA frena los
+ * mensajes de inmediato. Estos tests son el contrato de esa promesa.
+ */
+describe('dispatch STOP: baja del cliente', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prismaMock.client.update.mockResolvedValue({});
+    prismaMock.notification.create.mockResolvedValue({});
+  });
+
+  const baja = {
+    clientId: 'cl-1',
+    trainerId: 'tr-1',
+    organizationId: 'org-1',
+    phone: '+573001234567',
+    clientName: 'Juan Perez',
+    intent: 'STOP' as const,
+    messageText: 'baja',
+  };
+
+  it('pausa al cliente, que es lo que el cron del saludo ya filtra', async () => {
+    await dispatch(baja);
+
+    expect(prismaMock.client.update).toHaveBeenCalledWith({
+      where: { id: 'cl-1' },
+      data: { status: 'paused' },
+    });
+  });
+
+  it('no consulta el plan: la baja no depende de tener rutina activa', async () => {
+    await dispatch(baja);
+
+    expect(prismaMock.plan.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('avisa al entrenador para que no lo lea como un cliente que desaparecio', async () => {
+    await dispatch(baja);
+
+    const arg = prismaMock.notification.create.mock.calls[0][0];
+    expect(arg.data.type).toBe('opt_out');
+    expect(arg.data.trainerId).toBe('tr-1');
+    expect(arg.data.title).toContain('Juan Perez');
+  });
+
+  it('confirma al cliente que no le escribe mas', async () => {
+    await dispatch(baja);
+
+    const msg = enqueueMock.mock.calls[0][0];
+    expect(msg.text).toMatch(/no te escribo mas/i);
+    expect(msg.templateKey).toBe('stop_ack');
+  });
+
+  it('devuelve triggeredAction stopped y sin sesion', async () => {
+    const res = await dispatch(baja);
+
+    expect(res).toEqual({ triggeredAction: 'stopped', sessionId: null, exerciseLogId: null });
+  });
+
+  it('funciona aunque el cliente no tenga plan activo', async () => {
+    prismaMock.plan.findFirst.mockResolvedValue(null);
+
+    await expect(dispatch(baja)).resolves.toMatchObject({ triggeredAction: 'stopped' });
+    expect(prismaMock.client.update).toHaveBeenCalled();
   });
 });

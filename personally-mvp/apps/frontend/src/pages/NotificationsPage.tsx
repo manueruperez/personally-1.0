@@ -27,7 +27,14 @@ const TYPE_META: Record<
   change_request: { label: 'Cambio', variant: 'warning' },
   silent_client: { label: 'Inactivo', variant: 'secondary' },
   agent_offline: { label: 'Agente', variant: 'secondary' },
+  opt_out: { label: 'Baja', variant: 'warning' },
 };
+
+/**
+ * El backend puede sumar tipos antes que el frontend. Sin este fallback, una
+ * notificacion de un tipo desconocido rompe el render de toda la pagina.
+ */
+const UNKNOWN_TYPE = { label: 'Aviso', variant: 'secondary' } as const;
 
 export function NotificationsPage() {
   const [filter, setFilter] = useState<Filter>('unread');
@@ -100,7 +107,7 @@ function NotificationItem({ notification }: { notification: NotificationDto }) {
   const { data: agentStatus } = useAgentStatus();
   const online = isAgentOnline(agentStatus?.state);
 
-  const meta = TYPE_META[notification.type] ?? TYPE_META.silent_client;
+  const meta = TYPE_META[notification.type] ?? UNKNOWN_TYPE;
   const isUnread = !notification.readAt;
   const clientId = notification.metadata?.clientId;
   const canReply = !!clientId;

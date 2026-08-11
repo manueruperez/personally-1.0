@@ -453,6 +453,7 @@ enum NotificationType {
   agent_offline
   agent_reconnected
   plan_expiring
+  opt_out
 
   @@map("notification_type")
 }

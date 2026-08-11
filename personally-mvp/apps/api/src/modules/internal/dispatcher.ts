@@ -13,6 +13,7 @@ import {
   TXT_PLAN_ENDED,
   TXT_PLAN_FUTURE,
   TXT_REST_DAY,
+  TXT_STOP_ACK,
   TXT_UNKNOWN_GREETED,
   TXT_UNKNOWN_IN_SESSION,
 } from './templates.js';
@@ -46,6 +47,11 @@ function dayOfWeekMonBased(d: Date): number {
 
 export async function dispatch(params: DispatchParams): Promise<DispatchResult> {
   const today = startOfLocalDay();
+
+  // La baja se resuelve antes de mirar el plan: alguien que pide dejar de
+  // recibir mensajes no puede terminar recibiendo "hoy es dia de descanso" o
+  // "no tenes plan activo". Es lo que promete la politica de privacidad.
+  if (params.intent === 'STOP') return stopMessages(params);
 
   const plan = await prisma.plan.findFirst({
     where: { clientId: params.clientId, status: 'active' },
@@ -462,6 +468,38 @@ async function recomputeSessionStats(sessionId: string) {
       completionRate: new Prisma.Decimal(completionRate),
     },
   });
+}
+
+/**
+ * Baja a pedido del cliente.
+ *
+ * `paused` es lo que ya filtra el cron del saludo diario (`status: 'active'`),
+ * asi que con esto deja de escribirle sin tocar el cron. No se archiva ni se
+ * borra nada: el historial queda para el entrenador y la reactivacion es
+ * cambiar el estado desde el panel.
+ */
+async function stopMessages(params: DispatchParams): Promise<DispatchResult> {
+  await prisma.client.update({
+    where: { id: params.clientId },
+    data: { status: 'paused' },
+  });
+
+  // Sin esto el entrenador ve a alguien que dejo de responder y no sabe si se
+  // dio de baja o si el bot se rompio.
+  await prisma.notification.create({
+    data: {
+      organizationId: params.organizationId,
+      trainerId: params.trainerId,
+      type: 'opt_out',
+      title: `${params.clientName} pidio dejar de recibir mensajes`,
+      body: params.messageText.slice(0, 500),
+      metadata: { clientId: params.clientId },
+    },
+  });
+
+  await sendText(params, TXT_STOP_ACK, 'stop_ack');
+
+  return { triggeredAction: 'stopped', sessionId: null, exerciseLogId: null };
 }
 
 async function sendText(

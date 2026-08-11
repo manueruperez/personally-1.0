@@ -7,6 +7,7 @@ export const intent = z.enum([
   'CHANGE',
   'PAIN',
   'FINISH',
+  'STOP',
   'UNKNOWN',
 ]);
 
