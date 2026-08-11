@@ -48,7 +48,7 @@ export function renderDailyGreeting(ctx: {
   if (ctx.exerciseCount) meta.push(`${ctx.exerciseCount} ejercicios`);
   if (meta.length) parts.push(`⏱ ${meta.join(' · ')}`);
   parts.push('');
-  parts.push('Responde *iniciar* cuando estes listo/a.');
+  parts.push('Responde *iniciar* cuando estés listo/a.');
   return parts.join('\n');
 }
 
@@ -113,7 +113,7 @@ export const TXT_REST_DAY =
   'Hoy es dia de descanso. Nos vemos mañana. 🌿';
 export const TXT_UNKNOWN_IN_SESSION =
   'No te entendi. Responde *siguiente*, *saltar* o *cambiar*.';
-export const TXT_UNKNOWN_GREETED = 'Responde *iniciar* cuando estes listo/a.';
+export const TXT_UNKNOWN_GREETED = 'Responde *iniciar* cuando estés listo/a.';
 export const TXT_UNKNOWN_OFFHOURS = 'Descansa, mañana seguimos.';
 export const TXT_PAIN_ACK =
   'Recibido. Ya aviso a tu entrenador y saltamos ese ejercicio. Seguimos con el siguiente.';
