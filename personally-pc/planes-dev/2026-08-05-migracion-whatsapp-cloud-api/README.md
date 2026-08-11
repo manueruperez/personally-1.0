@@ -1,6 +1,17 @@
 # Plan: migrar el canal de WhatsApp a la Cloud API oficial de Meta
 
-*Creado: 2026-08-05. Estado: **en espera de habilitación de la API** — no ejecutar hasta que los trámites de Meta estén listos (sección 2).*
+*Creado: 2026-08-05. Actualizado: 2026-08-10.*
+
+**Estado: pasos 1-3 implementados y testeados; 4-6 pendientes.** Los trámites de Meta (sección 2) siguen sin arrancar y son la ruta crítica. Corrección al plan original: los pasos 1-4 sí se pueden escribir sin credenciales (tests con `fetch` mockeado); lo que realmente depende de los trámites es el paso 5, la validación E2E y el deploy con `CHANNEL=cloud`.
+
+| Paso | Estado | Dónde |
+|---|---|---|
+| 1. Cliente HTTP | ✅ 12 tests | `apps/agent/src/channels/cloud-api/client.ts` |
+| 2. `CloudApiChannel` | ✅ 12 tests | `apps/agent/src/channels/cloud-api/channel.ts` |
+| 3. Selección por env | ✅ 8 tests | `apps/agent/src/channels/factory.ts` |
+| 4. Webhook de entrada | ⬜ | `apps/api` |
+| 5. Plantilla del saludo | ⬜ bloqueado por Meta | — |
+| 6. Docs y corte | ⬜ | — |
 
 ## 1. Por qué
 
@@ -78,7 +89,7 @@ Caddy: agregar la ruta antes del handler genérico de `/api/*` (el orden importa
 **Tests:** verificación del challenge; firma inválida → 401; payload real de Meta → `IncomingMessage` correcto; ignorar eventos de status (`delivered`/`read`) sin romper.
 
 ### Paso 5 — Plantilla del saludo diario
-El dispatcher ya marca `templateKey: 'daily_greeting'`. Mapear las variables del texto actual a los placeholders `{{1}}`, `{{2}}` de la plantilla aprobada.
+El dispatcher marca `templateKey: 'greeting'` (`dispatcher.ts:577`) — **no `daily_greeting`** como decía la primera versión de este plan. La plantilla en Meta debe registrarse con ese nombre, o cambiar el mapeo en `TEMPLATE_NAMES` (`cloud-api/channel.ts`). Mapear las variables del texto actual a los placeholders `{{1}}`, `{{2}}` de la plantilla aprobada.
 **Tests:** el orden y cantidad de variables coincide con la plantilla registrada.
 
 ### Paso 6 — Documentación y corte

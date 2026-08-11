@@ -11,6 +11,7 @@ import { NotificationsPage } from '@/pages/NotificationsPage';
 import { AgentPage } from '@/pages/AgentPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { PrivacyPage } from '@/pages/PrivacyPage';
 
 // Anotacion explicita: sin ella, la emision de declaraciones falla con TS2742
 // (tipo inferido no portable entre node_modules de pnpm).
@@ -32,6 +33,9 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
       { path: '/settings', element: <SettingsPage /> },
     ],
   },
+  // Publica y fuera de todo layout con auth: Meta la exige para publicar la
+  // app, y la revisa un bot sin sesion iniciada.
+  { path: '/privacy', element: <PrivacyPage /> },
   { path: '*', element: <NotFoundPage /> },
   { path: '/404', element: <NotFoundPage /> },
   { path: '/home', element: <Navigate to="/" replace /> },
