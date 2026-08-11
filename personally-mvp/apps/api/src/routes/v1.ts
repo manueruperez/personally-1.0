@@ -10,6 +10,7 @@ import { notificationsRouter } from '../modules/notifications/routes.js';
 import { dashboardRouter } from '../modules/dashboard/routes.js';
 import { agentRouter } from '../modules/agent/routes.js';
 import { internalRouter } from '../modules/internal/routes.js';
+import { webhooksRouter } from '../modules/webhooks/routes.js';
 
 export const v1Router: Router = Router();
 
@@ -27,3 +28,7 @@ v1Router.use('/agent', auth, agentRouter);
 
 // Rutas internas (usadas por el agente WhatsApp)
 v1Router.use('/internal', agentAuth, internalRouter);
+
+// Webhooks de Meta. Sin middleware de auth a proposito: quien llama es Meta,
+// y la autenticacion es la firma X-Hub-Signature-256 que valida cada handler.
+v1Router.use('/webhooks', webhooksRouter);

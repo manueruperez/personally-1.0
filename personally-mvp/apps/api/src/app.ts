@@ -16,7 +16,16 @@ export function createApp(): express.Express {
       credentials: true,
     }),
   );
-  app.use(express.json({ limit: '1mb' }));
+  // Guardamos el cuerpo crudo: la firma del webhook de Meta es un HMAC sobre
+  // los bytes originales, y re-serializar el JSON parseado la invalida.
+  app.use(
+    express.json({
+      limit: '1mb',
+      verify: (req, _res, buf) => {
+        (req as unknown as { rawBody?: Buffer }).rawBody = buf;
+      },
+    }),
+  );
   app.use(pinoHttp({ logger }));
 
   app.get('/health', (_req, res) => {
