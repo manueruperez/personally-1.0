@@ -133,6 +133,7 @@ Entrenador (browser) ──→│  Caddy :443 ─→ /            → frontend e
   - Agente arranca Chromium en contenedor, genera QR (`qr_required`) y su heartbeat llega a la API.
 - [x] **Deploy real ejecutado (2026-07-28/29):** stack completo arriba en `https://app.personallay.com` — TLS emitido por Caddy, `./smoke.sh app.personallay.com` **6/6 OK**, schema (13 tablas) + catálogo (873) + traducciones cargados.
 - [x] Bootstrap del trainer en el VPS (2026-07-29, mismas credenciales que el entorno local): `trainerId fc574b0e-e55d-46ab-81b3-ff4db136e5c3` → `AGENT_TRAINER_ID` en `.env` → agente arriba pidiendo QR, SSE conectado.
+- [x] Segundo trainer (2026-07-29): **Luis Avirama** · `lavirama@unicauca.edu.co` · org propia · `trainerId f1bd4a68-b566-4fd1-8527-397d8d133f7b`. Solo panel: el bot sigue atado al trainer de Juan — para la demo real, poner su trainerId en `AGENT_TRAINER_ID` y `docker compose up -d agent`. Pedirle que cambie la password inicial.
 - [x] Login E2E validado contra el dominio real: password grant → JWT → `/api/v1/me` devuelve el trainer.
 - [ ] Escanear QR con el número dedicado en `https://app.personallay.com/agent`.
 
