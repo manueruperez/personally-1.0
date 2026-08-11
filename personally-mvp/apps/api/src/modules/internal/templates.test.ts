@@ -123,7 +123,7 @@ describe('renderDailyGreeting', () => {
     expect(text).toContain('tu rutina del dia');
     expect(text).toContain('a tu ritmo');
     expect(text).toContain('Responde *iniciar*');
-    expect(text).not.toMatch(/Enfoque: *$/m);
+    expect(text).not.toMatch(/Enfoque del día: *$/m);
   });
 
   /**
@@ -141,12 +141,12 @@ describe('renderDailyGreeting', () => {
 
     expect(text).toBe(
       [
-        '¡Hola Juan! 💪 Tu entrenamiento de hoy ya está listo.',
+        'Hola Juan, tu sesión de entrenamiento de hoy ya está disponible en tu plan.',
         '',
-        'Enfoque: Pierna y core',
-        '⏱ Duración estimada: ~45 min · 6 ejercicios',
+        '  Enfoque del día: Pierna y core',
+        '  Duración estimada: ~45 min · 6 ejercicios',
         '',
-        'Responde *iniciar* cuando estés listo/a y arrancamos.',
+        '  Responde *iniciar* para comenzar.',
       ].join('\n'),
     );
   });

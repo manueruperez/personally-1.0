@@ -42,13 +42,17 @@ export function renderDailyGreeting(ctx: {
   exerciseCount: number;
 }): string {
   const [firstName, focus, meta] = buildDailyGreetingParams(ctx);
+  // Copia literal del cuerpo aprobado por Meta, sangria incluida: los dos
+  // espacios se colaron al registrar la plantilla y quedaron congelados ahi.
+  // Se replican para que el cliente vea lo mismo por cualquiera de los dos
+  // canales; se limpian cuando haya que revisar la plantilla por otro motivo.
   return [
-    `¡Hola ${firstName}! 💪 Tu entrenamiento de hoy ya está listo.`,
+    `Hola ${firstName}, tu sesión de entrenamiento de hoy ya está disponible en tu plan.`,
     '',
-    `Enfoque: ${focus}`,
-    `⏱ Duración estimada: ${meta}`,
+    `  Enfoque del día: ${focus}`,
+    `  Duración estimada: ${meta}`,
     '',
-    'Responde *iniciar* cuando estés listo/a y arrancamos.',
+    '  Responde *iniciar* para comenzar.',
   ].join('\n');
 }
 
@@ -56,9 +60,9 @@ export function renderDailyGreeting(ctx: {
  * Variables del saludo diario para la plantilla `greeting` de la Cloud API,
  * en el orden de los placeholders:
  *
- *   ¡Hola {{1}}! 💪 Tu entrenamiento de hoy ya está listo.
- *   Enfoque: {{2}}
- *   ⏱ Duración estimada: {{3}}
+ *   Hola {{1}}, tu sesión de entrenamiento de hoy ya está disponible en tu plan.
+ *     Enfoque del día: {{2}}
+ *     Duración estimada: {{3}}
  *
  * `renderDailyGreeting` arma su texto con estas mismas variables, asi que los
  * dos canales muestran exactamente lo mismo y no pueden desincronizarse.
