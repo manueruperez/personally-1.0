@@ -84,6 +84,11 @@ services:
       AGENT_TRAINER_ID: ${AGENT_TRAINER_ID}
       SCHEDULER_TIMEZONE: ${TZ:-America/Bogota}
       TZ: ${TZ:-America/Bogota}
+      # Webhook de la Cloud API: el secreto valida la firma de cada evento y el
+      # verify token responde el challenge de alta. Vacios = el webhook rechaza
+      # todo, que es el default seguro mientras el canal siga en wwebjs.
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
+      WHATSAPP_WEBHOOK_VERIFY_TOKEN: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN:-}
 
   agent:
     build:
@@ -102,6 +107,12 @@ services:
       AGENT_TRAINER_ID: ${AGENT_TRAINER_ID}
       PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
       TZ: ${TZ:-America/Bogota}
+      # Canal de salida. Default wwebjs: un deploy sin la variable seteada se
+      # comporta como siempre. Cambiar a `cloud` + restart es el rollback/switch.
+      CHANNEL: ${CHANNEL:-wwebjs}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_TEMPLATE_LANGUAGE: ${WHATSAPP_TEMPLATE_LANGUAGE:-es}
     volumes:
       # Sesión WhatsApp (LocalAuth) — sobrevive respawns y rebuilds
       - wwebjs_auth:/app/apps/agent/.wwebjs_auth

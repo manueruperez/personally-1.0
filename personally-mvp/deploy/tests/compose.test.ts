@@ -167,3 +167,33 @@ describe('docker-compose: caddy (frontend + edge)', () => {
     expect(caddy.volumes).toContain('caddy_data:/data');
   });
 });
+
+describe('docker-compose: canal WhatsApp Cloud API', () => {
+  it('el API recibe el secreto y el verify token del webhook', () => {
+    const env = services.api.environment ?? {};
+
+    expect(env.WHATSAPP_APP_SECRET).toBe('${WHATSAPP_APP_SECRET:-}');
+    expect(env.WHATSAPP_WEBHOOK_VERIFY_TOKEN).toBe('${WHATSAPP_WEBHOOK_VERIFY_TOKEN:-}');
+  });
+
+  it('el agente arranca en wwebjs cuando CHANNEL no esta seteado', () => {
+    expect(services.agent.environment?.CHANNEL).toBe('${CHANNEL:-wwebjs}');
+  });
+
+  it('el agente recibe las credenciales de la Cloud API', () => {
+    const env = services.agent.environment ?? {};
+
+    expect(env.WHATSAPP_PHONE_NUMBER_ID).toBe('${WHATSAPP_PHONE_NUMBER_ID:-}');
+    expect(env.WHATSAPP_ACCESS_TOKEN).toBe('${WHATSAPP_ACCESS_TOKEN:-}');
+    expect(env.WHATSAPP_TEMPLATE_LANGUAGE).toBe('${WHATSAPP_TEMPLATE_LANGUAGE:-es}');
+  });
+
+  it('el token permanente no se filtra al frontend: caddy no lo recibe', () => {
+    const buildArgs = services.caddy.build?.args ?? {};
+    const env = services.caddy.environment ?? {};
+
+    for (const bag of [buildArgs, env]) {
+      expect(Object.keys(bag).join(',')).not.toMatch(/WHATSAPP_ACCESS_TOKEN|APP_SECRET/);
+    }
+  });
+});

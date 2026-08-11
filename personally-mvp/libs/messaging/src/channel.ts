@@ -18,6 +18,14 @@ export interface OutgoingMessage {
   mediaUrl?: string;
   caption?: string;
   templateKey?: string;
+  /**
+   * Variables de la plantilla, en el orden de los placeholders {{1}}, {{2}}...
+   *
+   * Solo lo usan los canales que mandan plantillas de verdad (Cloud API). Los
+   * canales que mandan texto libre ignoran esto y usan `text`, que ya viene
+   * renderizado — asi el mismo mensaje sirve para los dos.
+   */
+  templateParams?: string[];
 }
 
 export interface IncomingMessage {

@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { WhatsAppWebJsChannel } from './channels/whatsapp-webjs.js';
+import { createChannel, resolveChannelKind } from './channels/factory.js';
 import { ApiClient } from './api-client.js';
 import { createIncomingHandler } from './handlers/incoming.js';
 import { startHeartbeat } from './heartbeat.js';
@@ -16,7 +16,8 @@ async function main() {
   }
 
   const api = new ApiClient(apiBaseUrl, agentToken, AGENT_VERSION);
-  const channel = new WhatsAppWebJsChannel({ agentVersion: AGENT_VERSION, api });
+  const channel = createChannel({ agentVersion: AGENT_VERSION, api });
+  logger.info({ channel: resolveChannelKind() }, 'canal seleccionado');
 
   channel.onIncoming(createIncomingHandler({ channel, api }));
 
