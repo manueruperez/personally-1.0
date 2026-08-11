@@ -41,28 +41,30 @@ export function renderDailyGreeting(ctx: {
   durationMin: number | null;
   exerciseCount: number;
 }): string {
-  const parts = [`¡Hola ${ctx.name.split(' ')[0]}! 💪`];
-  if (ctx.focus) parts.push(`Hoy: ${ctx.focus}`);
-  const meta: string[] = [];
-  if (ctx.durationMin) meta.push(`~${ctx.durationMin} min`);
-  if (ctx.exerciseCount) meta.push(`${ctx.exerciseCount} ejercicios`);
-  if (meta.length) parts.push(`⏱ ${meta.join(' · ')}`);
-  parts.push('');
-  parts.push('Responde *iniciar* cuando estés listo/a.');
-  return parts.join('\n');
+  const [firstName, focus, meta] = buildDailyGreetingParams(ctx);
+  return [
+    `¡Hola ${firstName}! 💪 Tu entrenamiento de hoy ya está listo.`,
+    '',
+    `Enfoque: ${focus}`,
+    `⏱ Duración estimada: ${meta}`,
+    '',
+    'Responde *iniciar* cuando estés listo/a y arrancamos.',
+  ].join('\n');
 }
 
 /**
  * Variables del saludo diario para la plantilla `greeting` de la Cloud API,
  * en el orden de los placeholders:
  *
- *   ¡Hola {{1}}! 💪
- *   Hoy: {{2}}
- *   ⏱ {{3}}
+ *   ¡Hola {{1}}! 💪 Tu entrenamiento de hoy ya está listo.
+ *   Enfoque: {{2}}
+ *   ⏱ Duración estimada: {{3}}
  *
- * Vive al lado de `renderDailyGreeting` a proposito: los dos canales muestran
- * lo mismo, uno como texto armado y el otro como plantilla, y si cambia el
- * contenido tienen que cambiar juntos.
+ * `renderDailyGreeting` arma su texto con estas mismas variables, asi que los
+ * dos canales muestran exactamente lo mismo y no pueden desincronizarse.
+ *
+ * El cuerpo fijo esta congelado por la aprobacion de Meta (2026-08-11):
+ * cambiarlo exige otra revision de 24-48h.
  *
  * Meta rechaza el envio si alguna variable llega vacia, con saltos de linea o
  * con espacios de sobra — de ahi los fallbacks y el saneo.

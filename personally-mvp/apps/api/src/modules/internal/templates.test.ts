@@ -112,7 +112,7 @@ describe('renderDailyGreeting', () => {
     expect(text).toContain('Responde *iniciar*');
   });
 
-  it('sin focus ni duracion es minimalista', () => {
+  it('sin focus ni duracion usa los fallbacks, no deja huecos', () => {
     const text = renderDailyGreeting({
       name: 'Juan',
       focus: null,
@@ -120,7 +120,55 @@ describe('renderDailyGreeting', () => {
       exerciseCount: 0,
     });
     expect(text).toContain('Juan');
+    expect(text).toContain('tu rutina del dia');
+    expect(text).toContain('a tu ritmo');
     expect(text).toContain('Responde *iniciar*');
+    expect(text).not.toMatch(/Enfoque: *$/m);
+  });
+
+  /**
+   * El cuerpo fijo esta congelado por la aprobacion de Meta (2026-08-11):
+   * cambiarlo exige otra revision de 24-48h. Este test es el candado — si
+   * alguien edita el texto sin querer, falla antes de llegar a produccion.
+   */
+  it('coincide exactamente con el cuerpo de la plantilla aprobada', () => {
+    const text = renderDailyGreeting({
+      name: 'Juan Manuel Perez',
+      focus: 'Pierna y core',
+      durationMin: 45,
+      exerciseCount: 6,
+    });
+
+    expect(text).toBe(
+      [
+        '¡Hola Juan! 💪 Tu entrenamiento de hoy ya está listo.',
+        '',
+        'Enfoque: Pierna y core',
+        '⏱ Duración estimada: ~45 min · 6 ejercicios',
+        '',
+        'Responde *iniciar* cuando estés listo/a y arrancamos.',
+      ].join('\n'),
+    );
+  });
+
+  /**
+   * Los dos canales tienen que decir lo mismo: wwebjs manda este texto armado y
+   * Cloud API manda las variables sueltas dentro de la plantilla. Si divergen,
+   * el cliente ve un mensaje distinto segun el canal y nadie se entera.
+   */
+  it('usa las mismas variables que se le mandan a la plantilla', () => {
+    const ctx = {
+      name: 'Ana Lopez',
+      focus: 'Empuje',
+      durationMin: 30,
+      exerciseCount: 4,
+    };
+
+    const text = renderDailyGreeting(ctx);
+
+    for (const param of buildDailyGreetingParams(ctx)) {
+      expect(text).toContain(param);
+    }
   });
 });
 
