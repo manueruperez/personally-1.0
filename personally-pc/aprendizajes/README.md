@@ -20,6 +20,7 @@ Inventario y evaluación del **demo previo** ubicado en `../../project-demo/`. E
 | [03-wa-bot.md](03-wa-bot.md) | Arquitectura del bot, handler, cron, qué portar |
 | [04-db.md](04-db.md) | Schema del plan, CSV, estrategia de carga |
 | [05-plan-migracion.md](05-plan-migracion.md) | **Plan concreto** de qué copiar, qué portar, qué reescribir |
+- [06-copy-configurable.md](06-copy-configurable.md) — qué copy se puede editar con la Cloud API y qué no; decisión de postergar.
 
 ## Cómo usar esta carpeta
 

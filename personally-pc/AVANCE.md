@@ -247,7 +247,8 @@ Estado del monorepo `personally-mvp/` construido sobre las specs de esta carpeta
 - **Revisar copy de templates** con el trainer (greeting, exercise_card, finish, unknown, pain_ack, change_ack, stop_ack). Trabajo editorial, 30 min de su tiempo + 30 min tuyos.
   ⚠️ El copy de `greeting` ahora está **congelado en Meta**: cambiarlo exige mandar
   la plantilla a revisión de nuevo (24-48h). Revisarlo con el trainer **antes** de
-  aprobarla, no después.
+  aprobarla, no después. Hacerlo editable desde el panel no es posible para ese
+  mensaje — ver [aprendizajes/06-copy-configurable.md](aprendizajes/06-copy-configurable.md).
 - **Revisar el texto de `/privacy`** — es un borrador de trabajo, no asesoría legal.
   Compromete a Personallay frente a los clientes finales.
 - **Onboarding presencial**: sentarte 1h con él para cargar sus 2-3 clientes + CSVs de planes + setear timezone y hora preferida de cada cliente.
