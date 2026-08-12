@@ -1,13 +1,14 @@
 # Avance del MVP — Personally 1.0
 
-*Última actualización: 2026-08-10 (migración del canal a WhatsApp Cloud API)*
+*Última actualización: 2026-08-12 (limpieza: `whatsapp-web.js` fuera del repo)*
 
 Estado del monorepo `personally-mvp/` construido sobre las specs de esta carpeta.
 
-> **Lo más reciente (2026-08-10):** el canal de WhatsApp se migró a la Cloud API
-> oficial de Meta. Todo el código está hecho, desplegado y verificado en
-> producción; el agente sigue corriendo en `wwebjs` hasta que Meta apruebe la
-> plantilla del saludo. Detalle y pendientes en
+> **Lo más reciente (2026-08-12):** `whatsapp-web.js` se eliminó del repo. Queda
+> un solo canal — la Cloud API oficial de Meta — así que se fueron Puppeteer,
+> Chromium, el supervisor, el QR y el botón "Reconectar" del panel. El rollback
+> dejó de ser una variable de entorno y pasó a ser un `git revert`.
+> Detalle y pendientes en `planes-dev/2026-08-12-limpieza-wwebjs/`,
 > `planes-dev/2026-08-05-migracion-whatsapp-cloud-api/` y en
 > `docs/08-despliegue.md` → "Canal de WhatsApp".
 
@@ -53,11 +54,14 @@ Estado del monorepo `personally-mvp/` construido sobre las specs de esta carpeta
 - Mapeo `auth.users.id` → `trainers.user_id` (single source of truth).
 
 ### Canal WhatsApp
-- **whatsapp-web.js 1.34.6** + **LocalAuth** (sesión persistida en VPS).
-- Puppeteer con sandbox-off, Chromium `mac_arm-147.0.7727.56`.
-- Retry automático (hasta 3x con backoff) cuando ocurre "detached frame".
+- **WhatsApp Cloud API** oficial de Meta, detrás de `MessagingChannel`
+  (`libs/messaging`). Única implementación: `CloudApiChannel`.
+- Salida: HTTP contra Graph con token permanente. Entrada: webhook al API con
+  firma `X-Hub-Signature-256` verificada.
+- Solo el saludo diario sale como plantilla aprobada; el resto viaja dentro de la
+  ventana de 24h que abre la respuesta del cliente.
 - Heartbeat cada 60s + en cada cambio de estado.
-- Filtro de grupos activo.
+- Sin navegador, sin QR, sin sesión en disco (desde 2026-08-12).
 - Espaciado aleatorio 500-1500ms entre envíos (mitigación de baneo).
 
 ### Outbox
@@ -88,8 +92,8 @@ Estado del monorepo `personally-mvp/` construido sobre las specs de esta carpeta
 - `/api/v1/clients` — CRUD + filtro status + soft delete + `/send-test-message` + `/:id/messages` (conversación)
 - `/api/v1/plans` — draft/full create, activate/revert/archive, delete/add week con renumeración, import-csv
 - `/api/v1/exercises` — search paginado + create custom
-- `/api/v1/agent/status` — estado + QR para el frontend
-- `/api/v1/internal/*` — rutas para el agente (heartbeat con QR, incoming/outgoing messages, outbox polling)
+- `/api/v1/agent/status` — estado del bot para el panel (`online`/`offline`/`unknown`)
+- `/api/v1/internal/*` — rutas para el agente (heartbeat, incoming/outgoing messages, outbox polling + SSE)
 - **Dispatcher** en `modules/internal/dispatcher.ts`: resuelve plan_day → sessions → exercise_logs → templates → outbox. Maneja START/NEXT/SKIP/CHANGE/PAIN/FINISH/UNKNOWN.
 - **Templates** en `modules/internal/templates.ts`: exercise card, daily greeting, finish message, respuestas por estado.
 
@@ -101,19 +105,20 @@ Estado del monorepo `personally-mvp/` construido sobre las specs de esta carpeta
 ### `apps/agent`
 
 **Funciona:**
-- whatsapp-web.js con LocalAuth.
-- Canal con múltiples handlers (inbound, state change).
-- Heartbeat con QR reporting.
-- **Outbox por SSE** (push, <50ms) con polling como red de seguridad cada 15s.
-- **Comandos por SSE**: la API puede mandar `{ type: 'reinit' }` al agente (usado por el botón "Reconectar").
-- **Self-heal** dentro del proceso: si `send()` detecta detached frame → `destroy() + initialize()` automático sin perder LocalAuth.
+- Envío por Cloud API (texto, imagen con caption, plantillas con parámetros).
+- Validación de credenciales al arrancar: sin `WHATSAPP_PHONE_NUMBER_ID` /
+  `WHATSAPP_ACCESS_TOKEN` muere ruidosamente en vez de drenar el outbox contra 401.
+- **Outbox por SSE** (push, <50ms) con polling como red de seguridad cada 15s, más
+  un drenado al arrancar para lo que se acumuló mientras estuvo caído.
+- Heartbeat cada 60s + en cada cambio de estado.
 
 **Pendiente:**
-- **Revivir el proceso cuando está completamente muerto**. Síntoma:
-  - Si el agente crashea por fuera del canal (ej. Chromium SIGKILL por OOM), el proceso queda como zombie o muere.
-  - El botón "Reconectar" solo funciona si el proceso del agente está vivo recibiendo SSE.
-  - Dirección de fix: **supervisor** que spawn del agente como child process, detecta crash, limpia Chromium/LocalAuth locks, respawnea.
 - Dispatcher de acciones recibidas de la API (hoy el agent no consume triggeredAction; solo ejecuta el outbox).
+
+**Ya no aplica** (murió con `whatsapp-web.js` el 2026-08-12): supervisor con
+respawn, self-heal de detached frames, comandos `reinit` por SSE. El proceso no
+tiene estado local, así que revivirlo es trabajo de Docker
+(`restart: unless-stopped`), no del código.
 
 ### `apps/scheduler`
 
@@ -135,8 +140,8 @@ Estado del monorepo `personally-mvp/` construido sobre las specs de esta carpeta
 - **Clientes**: lista con filtros, detalle, crear/editar/archivar, quick-send inline, vista de conversación tipo chat con refresh 5s + **auto-scroll al fondo** + botón "ir al final" cuando no estás pegado.
 - **Planes**: lista por cliente, editor con tabs de semanas, + / 🗑 para semanas, activar/draft/archivar, import CSV con resumen.
 - **Ejercicios**: catálogo con búsqueda y paginación, crear custom.
-- **Agente**: estado con polling 5s, QR renderizado con `qrcode.react`, uptime, **botón Reconectar** que dispara re-init del cliente Puppeteer via SSE.
-- **Bombillito de estado del agente** en navbar (verde/amarillo/rojo/gris) con el estado en tiempo real.
+- **Bot** (`/agent`): estado con polling 5s y uptime. Escrito para el trainer: dice si el bot está enviando mensajes o no, y cuando está caído explica que los mensajes quedan en cola y vuelven solos. Sin QR ni botón "Reconectar" — no había acción del trainer que levantara el bot.
+- **Bombillito de estado del bot** en navbar (verde/amarillo/rojo/gris) con el estado en tiempo real.
 - **Input de mensaje deshabilitado** cuando el agente no está online, con banner de advertencia y link a /agent.
 - **Settings/Notifications**: stubs.
 
@@ -163,10 +168,10 @@ Estado del monorepo `personally-mvp/` construido sobre las specs de esta carpeta
 | Import CSV timeout 60s | Batch inserts (1 exercise fetch + 1 exercise createMany + 1 planDay createMany + 1 planItem createMany) |
 | Eliminar semana dejaba huecos | `updateMany` con `decrement: 1` en la misma transacción |
 | pino-pretty missing | Agregar como devDependency |
-| Agent zombies bloqueaban LocalAuth | `pkill -9 Chromium/tsx`, `rm -rf .wwebjs_auth` |
+| Agent zombies bloqueaban LocalAuth (era `wwebjs`) | `pkill -9 Chromium/tsx`, `rm -rf .wwebjs_auth` |
 | `AGENT_TRAINER_ID` concatenado al append | newline explícito en `.env` |
 | setState handler se sobrescribía | Arrays de handlers en vez de single ref |
-| "Detached frame" en send | Retry con backoff 1.5s/3s/4.5s |
+| "Detached frame" en send (era `wwebjs`) | Retry con backoff 1.5s/3s/4.5s |
 | SUPABASE_URL sin prefix HTTPS (supabase.com) | Detectar project-ref y reconstruir |
 | DAY_MAP mapeaba `sábado` (con tilde) a 7 en vez de 6 | Fix al mapping → re-importar CSV |
 | Dispatcher crasheaba con `Prisma is not defined` al recomputar stats | Importar `Prisma` namespace (no solo `type Prisma`) |
@@ -209,10 +214,11 @@ Estado del monorepo `personally-mvp/` construido sobre las specs de esta carpeta
 - **Startup sanity**: al arrancar el API, se cierran sesiones zombie en `in_progress` de días anteriores (pasan a `abandoned`) y se loguea un snapshot con counts de sesiones de hoy + errores outbound 24h.
 
 ### 🔧 Estabilización del agente
-- **Keepalive** cada 2 min (`getState()`) para mantener viva la conexión de Puppeteer.
-- **Warmup delay** de 15s al drenar outbox tras `channel.state = online`.
-- **Retry 5s + getState()** entre intentos si detached frame, y exit(1) si persiste → supervisor respawn.
-- Supervisor mata Chromium zombies + libera Singleton locks en cada respawn.
+Todo este bloque existía para sostener un Chromium: keepalive cada 2 min, warmup
+delay de 15s antes de drenar, retry ante detached frames, supervisor matando
+zombies y liberando Singleton locks. Se eliminó con `whatsapp-web.js` el
+2026-08-12. Hoy el agente es un cliente HTTP sin estado: drena el outbox al
+arrancar y Docker lo revive si muere.
 
 ### ⚠️ No validado todavía (gaps)
 - **Mitad de flujo** cuando el agente/API reinicia (recuperación).
@@ -237,7 +243,7 @@ Estado del monorepo `personally-mvp/` construido sobre las specs de esta carpeta
 10. ✅ **Traducción catálogo top 50+**.
 
 ### 📋 Pendiente antes de piloto real
-9. ✅ **Tests** — 358/358 pasando (167 al 2026-04-20, +191 con webhook, canal Cloud API, plantillas, BAJA y privacidad). Cubren: dispatcher + defer semantics + PAIN auto-skip + exercise image routing, dashboard service, today-session, notifications/reply + list + markRead, plans/items PATCH + add + delete + swap, startup-sanity, EditableCell, TRANSLATIONS map, TodaySessionCard (7), DashboardPage (6), NotificationsPage (6).
+9. ✅ **Tests** — 360/360 pasando al 2026-08-12 (api 119, agent 42, libs 83, deploy 53, frontend 63). Cubren: dispatcher + defer semantics + PAIN auto-skip + exercise image routing, dashboard service, today-session, notifications/reply + list + markRead, plans/items PATCH + add + delete + swap, startup-sanity, EditableCell, TRANSLATIONS map, TodaySessionCard (7), DashboardPage (6), NotificationsPage (6).
 10. ✅ **Imágenes** ejercicios UI + WhatsApp.
 11. ✅ **Traducción catálogo top 50+** (90 términos).
 12. **Revisar copy de templates con el trainer** (trabajo editorial, no dev — compartir con el amigo).
@@ -256,7 +262,7 @@ Estado del monorepo `personally-mvp/` construido sobre las specs de esta carpeta
 
 ### 📦 Pendiente post-piloto (producción)
 - Dockerización + deploy (Render/Railway API, VPS agente).
-- Migración a WhatsApp Cloud API oficial (elimina Puppeteer + baneo).
+- ~~Migración a WhatsApp Cloud API oficial~~ — hecha (2026-08-10, limpieza el 2026-08-12).
 - Onboarding de nuevos trainers (hoy es manual vía `bootstrap:trainer`).
 - Pasarela de pagos (Wompi/MercadoPago).
 - Persistencia del outbox (Redis/BullMQ) para sobrevivir reinicios del API.
@@ -271,10 +277,10 @@ Estado del monorepo `personally-mvp/` construido sobre las specs de esta carpeta
 11. Notificaciones del trainer en el frontend (hoy se crean en DB pero no se muestran).
 
 ### 🟢 Endurecer para producción
-12. **Re-init / self-heal del agente**: tras `detached frame` o crash del Chromium, destruir el client y re-inicializarlo sin perder LocalAuth. Complementar con watchdog externo (PM2) en VPS.
+12. ~~**Re-init / self-heal del agente**~~ — sin objeto: no hay Chromium ni sesión que reinicializar. El respawn lo hace Docker.
 13. Rate limiting en la API.
 14. Mover outbox a Redis/BullMQ.
-15. Migrar a WhatsApp Cloud API oficial (post-beta).
+15. ~~Migrar a WhatsApp Cloud API oficial~~ — hecho.
 16. Tests end-to-end automatizados.
 
 ---

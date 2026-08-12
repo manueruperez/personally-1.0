@@ -27,7 +27,7 @@ originSessionId: dc6d9cf9-4bed-4c83-bc3e-1a65e8699221
 
 **Comandos de arranque:**
 - `pnpm api:dev` — API en :3000
-- `pnpm agent:supervised` — agente con auto-respawn
+- `pnpm agent:dev` — agente (Cloud API; el supervisor murió con `whatsapp-web.js` el 2026-08-12)
 - `pnpm frontend:dev` — frontend en :5173
 
 **Gotcha activo:** `personally-mvp/.env` (root, NO `apps/api/.env`) tiene `TESTING_DOW=2` (Martes) dejado del Caso 8. Ajustar o borrar al retomar.

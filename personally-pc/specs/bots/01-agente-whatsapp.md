@@ -1,6 +1,8 @@
 # Bots — Agente WhatsApp
 
-Especificación de `apps/agent`. Node.js + `whatsapp-web.js` con `LocalAuth` (una sesión por entrenador). Implementa la interfaz `MessagingChannel` de `libs/messaging/`.
+Especificación de `apps/agent`. Node.js sobre la **WhatsApp Cloud API** oficial de Meta, detrás de la interfaz `MessagingChannel` de `libs/messaging/`.
+
+> Actualizada el 2026-08-12: hasta esa fecha el agente automatizaba WhatsApp Web con `whatsapp-web.js` + `LocalAuth`. Ese canal se eliminó del repo — ver `docs/08-despliegue.md` → "Canal de WhatsApp".
 
 Referencias:
 - [docs/01-producto.md](../../docs/01-producto.md) — flujo diario y comandos
@@ -24,31 +26,34 @@ Reglas:
 
 ---
 
-## 2. Ciclo de vida de la sesión WhatsApp
+## 2. Ciclo de vida del canal
 
-### Estados de sesión (no confundir con sesión de entrenamiento)
+### Estados del canal (no confundir con sesión de entrenamiento)
+
+No hay sesión de WhatsApp que mantener: la credencial es un token permanente, no
+un dispositivo vinculado. El canal está arriba o no está.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Initializing
-    Initializing --> QRRequired: sin credenciales
-    QRRequired --> Authenticating: QR escaneado
-    Authenticating --> Online
-    Online --> Reconnecting: ping falla
-    Reconnecting --> Online: ok
-    Reconnecting --> Offline: timeout
-    Offline --> QRRequired: LocalAuth invalid
-    Offline --> Reconnecting: reintentar
-    Online --> Offline: logout remoto
+    Initializing --> Online: credenciales válidas
+    Initializing --> [*]: faltan credenciales (el proceso muere)
+    Online --> Offline: el proceso deja de latir
+    Offline --> Online: el proceso vuelve
 ```
 
+`CloudApiChannel` reporta siempre `online`: `offline` no lo emite el canal, lo
+deduce la API cuando el heartbeat se enfría.
+
 ### Heartbeat
-- Cada **60s** el agente hace `POST /api/v1/internal/agent/heartbeat` con `{ trainerId, state, uptimeSec }`.
-- Si la API no recibe heartbeat en **5 min** → dispara `agent-heartbeat-monitor`.
+- Cada **60s** (y en cada cambio de estado) el agente hace `POST /api/v1/internal/agent/heartbeat` con `{ trainerId, state, uptimeSec, agentVersion }`.
+- Si la API no recibe heartbeat en **2 min**, `GET /api/v1/agent/status` devuelve `offline` cualquiera sea el último estado reportado.
+- Sin ningún heartbeat desde que arrancó la API, el estado es `unknown`.
+- El schema acepta además los estados de la era `whatsapp-web.js` (`qr_required`, `authenticating`, `reconnecting`) y los normaliza a `offline`, para que un agente viejo no falle con 400 durante un deploy.
 
 ### Alertas proactivas
-- Transición a `Reconnecting` repetida ≥3 veces en 10 min → notifica al trainer.
-- Transición a `Offline` → notifica al trainer + bandera en frontend.
+- `agent-heartbeat-monitor` (job del scheduler, hoy **placeholder**): debe notificar `agent_offline` al trainer y `agent_reconnected` cuando vuelve.
+- El panel muestra el estado en tiempo real (bombillito en la navbar + página `/agent`). No ofrece ninguna acción de reconexión: si el proceso murió, lo revive Docker.
 
 ---
 

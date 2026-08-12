@@ -1,6 +1,6 @@
 # 08 — Despliegue
 
-*Creado: 2026-07-25. Actualizado: 2026-08-10 — canal migrado a WhatsApp Cloud API.*
+*Creado: 2026-07-25. Actualizado: 2026-08-12 — `whatsapp-web.js` eliminado del repo.*
 
 ---
 
@@ -44,7 +44,7 @@
 
 ---
 
-## Canal de WhatsApp: migración a Cloud API (2026-08-10)
+## Canal de WhatsApp: migración a Cloud API (2026-08-10 → limpieza 2026-08-12)
 
 `whatsapp-web.js` dejó de ser viable: en la semana del 2026-07-29 se rompió tres
 veces (`sendMessage` devolviendo `undefined`, el evento `ready` dejando de
@@ -55,9 +55,9 @@ términos de servicio con riesgo de baneo del número.
 El canal se abstrae detrás de `MessagingChannel` (`libs/messaging`), así que la
 migración no tocó el dispatcher, la state machine, el catálogo ni el panel.
 
-### Qué cambia
+### Qué cambió
 
-| Con `wwebjs` | Con `cloud` |
+| Antes (`whatsapp-web.js`) | Ahora (Cloud API) |
 |---|---|
 | QR + LocalAuth en volumen | Token permanente en `.env` |
 | Chromium headless (~0.5-1 GB RAM) | Solo HTTP: sin navegador |
@@ -66,9 +66,11 @@ migración no tocó el dispatcher, la state machine, el catálogo ni el panel.
 | `externalId` interno de WA | `wamid.*` que devuelve la API |
 | $0 | Solo la plantilla que abre conversación |
 
+Los `externalId` viejos conviven con los `wamid.*` en el historial sin conflicto.
+
 ### Estado
 
-- [x] Canal `CloudApiChannel` + fábrica por `CHANNEL` (default `wwebjs`).
+- [x] Canal `CloudApiChannel` (única implementación de `MessagingChannel`).
 - [x] Webhook de entrada con validación de firma `X-Hub-Signature-256`,
       desplegado y verificado en producción (2026-08-10).
 - [x] `/privacy` pública — Meta la exige para publicar la app, y sin app
@@ -76,19 +78,49 @@ migración no tocó el dispatcher, la state machine, el catálogo ni el panel.
 - [x] Keyword **BAJA**: el cliente pasa a `paused` y se notifica al entrenador.
       Es lo que promete la política de privacidad.
 - [x] Número dedicado `+57 317 3972519` registrado en la WABA.
+- [x] `CHANNEL=cloud` activo en producción (la variable en sí murió con la
+      limpieza: hoy es el único canal posible).
+- [x] **Limpieza del canal viejo (2026-08-12)** — ver abajo.
 - [ ] Plantilla `greeting` aprobada por Meta (24-48h de revisión).
+- [ ] E2E completo por Cloud API (`iniciar` → tarjeta con imagen → `siguiente` →
+      cierre). Depende de la plantilla: sin ella no hay saludo que abra la
+      ventana de 24h.
 - [ ] Nombre visible corregido: quedó `personally`, debe ser `Personallay`.
 - [ ] App publicada.
-- [ ] `CHANNEL=cloud` en producción + E2E real.
 
-**El agente sigue en `wwebjs` a propósito** hasta validar el envío. El rollback
-es cambiar la variable y reiniciar, sin redeploy.
+### Limpieza de `whatsapp-web.js` (2026-08-12, hecha)
 
-### Lo que NO se hizo todavía
+Plan: `planes-dev/2026-08-12-limpieza-wwebjs/`. Tres commits de código + uno de
+docs:
 
-Eliminar `whatsapp-web.js` del repo y aligerar el Dockerfile del agente quitando
-Chromium. Se hace en una limpieza posterior, recién tras validar Cloud API con
-clientes reales — hasta entonces el canal viejo es la red de seguridad.
+- **Agente** — se fueron `channels/whatsapp-webjs.ts`, `puppeteer-config.ts`, el
+  supervisor y las deps `whatsapp-web.js` / `qrcode-terminal` (el lockfile perdió
+  ~1300 líneas). La fábrica pasó a `create-channel.ts`: con un solo canal ya no
+  elige nada, pero conserva la validación de credenciales.
+- **Docker** — la imagen del agente perdió Chromium, las fuentes y el volumen
+  `wwebjs_auth`: de ~1 GB a ~400 MB (estimado, sin construir). El `.env` perdió
+  `CHANNEL`; las credenciales de Cloud API pasaron de opcionales a obligatorias.
+  ⚠️ El volumen `wwebjs_auth` **sigue existiendo en el VPS a propósito**: dejar de
+  montarlo no borra nada. El `docker volume rm` va aparte, más adelante.
+- **Estado de sesión** — `SessionState` quedó en `initializing | online | offline`
+  y el panel perdió el QR y el botón "Reconectar" (ver más abajo por qué).
+
+**El rollback dejó de ser una variable de entorno y pasó a ser un `git revert`.**
+Ese es exactamente el costo que se aceptó al borrar el canal viejo, y por eso la
+limpieza esperó a que la Cloud API estuviera corriendo en producción.
+
+**Botón "Reconectar" (eliminado):** el comando viajaba por SSE, o sea que
+necesitaba al agente vivo para llegarle. Si estaba vivo no había sesión que
+reiniciar; si estaba muerto el comando no llegaba. Reiniciar el proceso es una
+acción de ops (`docker compose restart agent`), no del trainer, así que el panel
+ya no lo ofrece: cuando el bot está caído explica que los mensajes quedan en cola
+y que vuelve solo.
+
+**Compatibilidad del heartbeat:** el `z.enum` del API sigue aceptando
+`qr_required`, `authenticating` y `reconnecting`, normalizándolos a `offline`.
+Durante un deploy conviven agente viejo y API nuevo, y un 400 en el heartbeat
+mostraría el bot caído por un problema que no existe. Se puede endurecer cuando
+no queden agentes de esa era corriendo.
 
 Runbook operativo: `personally-mvp/deploy/README.md` → "Canal de WhatsApp".
 
@@ -105,7 +137,7 @@ Runbook operativo: `personally-mvp/deploy/README.md` → "Canal de WhatsApp".
 
 | Componente | Restricción | Consecuencia |
 |------------|-------------|--------------|
-| `apps/agent` | Chromium + Puppeteer, sesión en disco (`.wwebjs_auth/`), QR inicial, ~0.5-1GB RAM | Máquina persistente con disco. No serverless, no PaaS free |
+| `apps/agent` | Cliente HTTP sin estado local (desde 2026-08-12; antes: Chromium + Puppeteer + sesión en disco, ~0.5-1GB RAM) | Ya no exige disco propio, pero sigue en el VPS: necesita red docker con el API y proceso 24/7 |
 | `apps/api` | Stateful: outbox in-memory, SSE al agente, mutex, cron interno | Single instance, proceso 24/7, junto al agente (misma máquina/red docker) |
 | Auth | Frontend usa SDK Supabase (`/auth/v1/*`) + API verifica JWT HS256 con `SUPABASE_JWT_SECRET`; bootstrap usa admin API con service role | Self-host = correr **GoTrue** (el Auth de Supabase), no solo Postgres |
 | `apps/frontend` | Estático (Vite). `VITE_API_BASE_URL` horneada al build | Se sirve desde el mismo VPS (Caddy) o Vercel free |
@@ -132,7 +164,7 @@ Entrenador (browser) ──→│  Caddy :443 ─→ /            → frontend e
 | `postgres` | `postgres:15` (o imagen supabase/postgres) | Volumen persistente. **No expuesto a internet** (solo red docker) |
 | `gotrue` | `supabase/gotrue` | Auth de Supabase standalone. `GOTRUE_JWT_SECRET` = `SUPABASE_JWT_SECRET`. Reemplaza el auth de la nube **sin tocar código** |
 | `api` | Dockerfile propio (node:20) | `DATABASE_URL` directo a postgres (sin pgbouncer — single instance) |
-| `agent` | Dockerfile propio (node:20 + Chromium) | Volumen para `.wwebjs_auth/`. `API_BASE_URL=http://api:3000` |
+| `agent` | Dockerfile propio (node:20-slim + dumb-init) | Sin volumen. `API_BASE_URL=http://api:3000` + credenciales de Cloud API |
 | `caddy` | `caddy:2` | TLS automático (Let's Encrypt), reverse proxy + sirve el build del frontend |
 
 **Por qué GoTrue standalone y no el compose oficial completo de Supabase:** la app solo usa Auth + Postgres directo (Prisma). Kong, PostgREST, Storage, Realtime y Studio sobran — el stack mínimo corre en <1GB y cabe en un VPS de 4GB junto al agente.
@@ -169,28 +201,28 @@ Entrenador (browser) ──→│  Caddy :443 ─→ /            → frontend e
 
 ### Trabajo de código/infra para poder desplegar (estado 2026-07-25)
 
-- [x] `deploy/docker/*.Dockerfile` (api, agent con Chromium+entrypoint limpia-locks, web = frontend+Caddy).
+- [x] `deploy/docker/*.Dockerfile` (api, agent, web = frontend+Caddy). El del agente traía Chromium y un entrypoint limpia-locks hasta la limpieza del 2026-08-12.
 - [x] `deploy/docker-compose.yml` + `deploy/Caddyfile` + `deploy/.env.example` + `generate-keys.mjs` + `smoke.sh` + runbook (`deploy/README.md`).
 - [x] **Fix build de producción del frontend** (TS2742 ×2) — `vite build` pasa.
 - [x] **Fix build de producción de la API** — nunca se había corrido `tsc` completo; destapó y se corrigieron **bugs reales**: relaciones Prisma con nombre equivocado en `addPlanItem`/`updatePlanItem`/`deletePlanItem` (`planWeek/planDay` → `week/day`, crasheaban en runtime; los mocks de los tests codificaban el bug) y `Prisma` exportado como type-only en `libs/db` (rompía `new Prisma.Decimal` del dispatcher).
-- [x] Puppeteer con `executablePath` configurable por env (`PUPPETEER_EXECUTABLE_PATH`) para Chromium del sistema en Docker.
+- [x] ~~Puppeteer con `executablePath` configurable por env~~ — borrado el 2026-08-12 junto con Chromium.
 - [x] **Tests del deploy**: 52 nuevos (compose contract, Caddyfile order, Dockerfiles, generate-keys JWT, puppeteer-config). Suite total 219/219.
 - [x] **Validación local completa del stack** (2026-07-25, Docker en la Mac):
   - 3 imágenes buildean (con guards `test -f` de emisión + fix tsbuildinfo + fix openssl para engines de Prisma).
   - Stack arriba: `/health` 200, GoTrue vía `/auth/v1/health` 200, SPA 200, `/api/v1/internal/*` 403 en edge, API sin token 401.
   - `db push` (13 tablas) + catálogo 873 ejercicios cargado dentro del contenedor.
   - `bootstrap:trainer` contra GoTrue standalone ✅ → login password grant → JWT → `/api/v1/me` devuelve el trainer. **Swap Supabase→GoTrue validado sin tocar código.**
-  - Agente arranca Chromium en contenedor, genera QR (`qr_required`) y su heartbeat llega a la API.
+  - Agente arranca en contenedor y su heartbeat llega a la API (en esa validación todavía levantaba Chromium y pedía QR).
 - [x] **Deploy real ejecutado (2026-07-28/29):** stack completo arriba en `https://app.personallay.com` — TLS emitido por Caddy, `./smoke.sh app.personallay.com` **6/6 OK**, schema (13 tablas) + catálogo (873) + traducciones cargados.
 - [x] Bootstrap del trainer en el VPS (2026-07-29, mismas credenciales que el entorno local): `trainerId fc574b0e-e55d-46ab-81b3-ff4db136e5c3` → `AGENT_TRAINER_ID` en `.env` → agente arriba pidiendo QR, SSE conectado.
 - [x] Segundo trainer (2026-07-29): **Luis Avirama** · `lavirama@unicauca.edu.co` · org propia · `trainerId f1bd4a68-b566-4fd1-8527-397d8d133f7b`. Solo panel: el bot sigue atado al trainer de Juan — para la demo real, poner su trainerId en `AGENT_TRAINER_ID` y `docker compose up -d agent`. Pedirle que cambie la password inicial.
 - [x] Login E2E validado contra el dominio real: password grant → JWT → `/api/v1/me` devuelve el trainer.
-- [ ] Escanear QR con el número dedicado en `https://app.personallay.com/agent`.
+- [x] ~~Escanear QR con el número dedicado~~ — sin sentido desde la Cloud API: el alta es el token del `.env`.
 
 ### Checklist pre-entrega al entrenador
 
 - [ ] Smoke E2E completo desde la URL pública: login → crear/ver cliente → activar plan → `iniciar` desde un celular → `siguiente` → cierre.
-- [ ] Agente online (bombillito verde) y sesión WhatsApp persistida (reinicio del contenedor no pide QR).
+- [ ] Agente online (bombillito verde) y reinicio del contenedor sin intervención manual.
 - [ ] Número de WhatsApp **dedicado** (no personal — riesgo de ban).
 - [ ] UptimeRobot (free) contra `/health` y `/api/v1/agent/status` con alerta a tu correo.
 - [ ] Credenciales del panel para el entrenador + mini-guía de uso (1 página).

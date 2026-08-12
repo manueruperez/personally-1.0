@@ -152,9 +152,10 @@ describe('renderDailyGreeting', () => {
   });
 
   /**
-   * Los dos canales tienen que decir lo mismo: wwebjs manda este texto armado y
-   * Cloud API manda las variables sueltas dentro de la plantilla. Si divergen,
-   * el cliente ve un mensaje distinto segun el canal y nadie se entera.
+   * Las dos formas del saludo tienen que decir lo mismo: `text` es el mensaje ya
+   * renderizado que queda en el historial del panel, y `templateParams` son las
+   * variables sueltas que la Cloud API mete en la plantilla. Si divergen, el
+   * trainer lee una cosa en el panel y el cliente recibe otra en el telefono.
    */
   it('usa las mismas variables que se le mandan a la plantilla', () => {
     const ctx = {

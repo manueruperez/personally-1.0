@@ -382,9 +382,9 @@ async function presentNextOrFinish(input: {
   });
 
   // Si el ejercicio tiene imagen, la mandamos como contentType=image con el
-  // texto como caption. El canal (whatsapp-web.js) hace MessageMedia.fromUrl.
-  // Si la imagen falla de red, el agente tiene fallback a texto-solo via el
-  // try/catch de processOne.
+  // texto como caption: el canal se la pasa a Meta por URL. Si la imagen falla,
+  // el mensaje no se pierde en silencio — processOne del agente reporta el error
+  // como outgoing fallido y el trainer lo ve en el dashboard.
   const imageUrl = planItem.exercise.imageUrl ?? undefined;
   enqueue({
     trainerId: params.trainerId,
@@ -612,8 +612,9 @@ export async function sendDailyGreeting(params: {
     phone: client.phone,
     sessionId: session.id,
     contentType: 'text',
-    // `text` lo usa el canal de whatsapp-web.js; `templateParams`, el de Cloud
-    // API. Se mandan los dos para que el mensaje sirva en cualquier canal.
+    // `templateParams` es lo que consume la Cloud API. `text` va igual porque es
+    // el mismo saludo ya renderizado: queda en el historial del panel y sirve a
+    // cualquier canal futuro que mande texto libre en vez de plantillas.
     text: renderDailyGreeting(greetingCtx),
     templateKey: 'greeting',
     templateParams: buildDailyGreetingParams(greetingCtx),

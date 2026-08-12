@@ -40,11 +40,11 @@ docker compose exec \
   -e BOOTSTRAP_PASSWORD=... -e BOOTSTRAP_ORG_NAME="..." \
   api pnpm --filter @personally/db bootstrap:trainer
 
-# 7. Agente (con AGENT_TRAINER_ID ya en .env). Ver "Canal de WhatsApp" abajo.
+# 7. Agente (con AGENT_TRAINER_ID y las credenciales de Cloud API ya en .env).
 docker compose up -d agent
-# → con CHANNEL=wwebjs (default): abrir https://DOMINIO/agent y escanear el QR.
-#   La sesión persiste en el volumen wwebjs_auth (reinicios no piden QR).
-# → con CHANNEL=cloud: no hay QR ni sesión que mantener.
+# No hay nada que vincular: si las credenciales están, el agente arranca online;
+# si faltan, muere en el arranque con el nombre de la variable que falta.
+# Verificar en https://DOMINIO/agent → "En línea".
 
 # 8. Smoke test
 ./smoke.sh <dominio>
@@ -52,20 +52,18 @@ docker compose up -d agent
 
 ## Canal de WhatsApp
 
-El agente habla WhatsApp por uno de dos canales, elegido con `CHANNEL` en el `.env`:
+Hay un solo canal: la **Cloud API oficial de Meta**. No hay variable `CHANNEL` ni
+canal alternativo — `whatsapp-web.js` se eliminó del repo el 2026-08-12.
 
-| | `wwebjs` (default) | `cloud` |
-|---|---|---|
-| Cómo funciona | Automatiza WhatsApp Web en un Chromium headless | Cloud API oficial de Meta |
-| Alta | Escanear QR en `/agent` | Token permanente en `.env` |
-| Entrantes | Evento de Puppeteer en el proceso del agente | Webhook `POST /api/v1/webhooks/whatsapp` |
-| Riesgo | Se rompe con cada cambio de WhatsApp Web; el número puede ser baneado | Contrato estable |
-| Costo | $0 | Solo la plantilla que abre conversación (~USD 0.01-0.02) |
+- **Salida:** el agente hace HTTP contra Graph. Sin navegador, sin QR, sin sesión
+  en disco. Credencial: token permanente en el `.env`.
+- **Entrada:** webhook `POST /api/v1/webhooks/whatsapp`, con firma
+  `X-Hub-Signature-256` verificada. El agente ni se entera.
+- **Costo:** solo la plantilla que abre la conversación (~USD 0.01-0.02). Todo lo
+  que pasa dentro de la ventana de 24h que abre la respuesta del cliente es
+  gratis.
 
-`wwebjs` es el default a propósito: un deploy sin la variable seteada se comporta
-como siempre. Cambiar de canal es editar `.env` y reiniciar — sin rebuild.
-
-### Pasar a Cloud API
+### Alta / rotación de credenciales
 
 Requisitos previos (los hace Juan en el panel de Meta, ver
 `personally-pc/planes-dev/2026-08-05-migracion-whatsapp-cloud-api/`):
@@ -82,7 +80,6 @@ Requisitos previos (los hace Juan en el panel de Meta, ver
 Después, en el `.env` del deploy:
 
 ```bash
-CHANNEL=cloud
 WHATSAPP_PHONE_NUMBER_ID=...      # panel de WhatsApp → Configuración de la API
 WHATSAPP_ACCESS_TOKEN=...         # token permanente, no el temporal de 24h
 WHATSAPP_APP_SECRET=...           # Configuración de la app → Básica
@@ -93,12 +90,11 @@ docker compose up -d --force-recreate agent api
 
 ### Rollback
 
-```bash
-sed -i 's/^CHANNEL=.*/CHANNEL=wwebjs/' .env && docker compose up -d --force-recreate agent
-```
-
-El canal viejo queda intacto hasta que se elimine `whatsapp-web.js` del repo,
-cosa que recién se hace tras validar Cloud API con clientes reales.
+Ya no existe rollback por variable de entorno: el canal viejo no está en el
+código. Volver atrás es `git revert` de los commits de limpieza + rebuild, y
+recuperar un canal que estaba roto upstream. Ese costo se aceptó a conciencia al
+migrar; el rollback real ante un problema con Meta es rotar el token o el número,
+no cambiar de canal.
 
 ### Verificar el webhook sin esperar a Meta
 
@@ -121,12 +117,13 @@ Meta reintenta un rato y después **desactiva la suscripción sola**.
 ```bash
 docker compose ps                        # estado
 docker compose logs -f agent             # logs del agente
-docker compose restart agent             # equivalente al botón "Reconectar" a la fuerza
+docker compose restart agent             # única forma de reiniciar el bot (el panel no lo hace)
 docker compose exec postgres pg_dump -U postgres personally > backup-$(date +%F).sql
 ```
 
-- **Respawn del agente:** lo maneja Docker (`restart: unless-stopped`). El entrypoint
-  limpia los Singleton locks del volumen antes de cada arranque.
+- **Respawn del agente:** lo maneja Docker (`restart: unless-stopped`). El agente
+  no guarda estado local, así que un reinicio no pierde nada: el outbox vive en la
+  API y se drena al volver.
 - **Backups:** cron diario del `pg_dump` de arriba + copia semanal fuera del VPS.
 - **Monitoreo:** UptimeRobot (free) contra `https://DOMINIO/health`.
 
@@ -156,7 +153,9 @@ curl -X POST 'http://localhost/auth/v1/token?grant_type=password' \
 # → access_token; usarlo contra /api/v1/me debe devolver el trainer
 ```
 
-El agente puede levantarse igual (`up -d agent`) pero pedirá QR — solo escanearlo en el deploy real.
+El agente puede levantarse igual (`up -d agent`) y va a enviar de verdad si las
+credenciales de Cloud API son las reales. Lo que no funciona en local es la
+entrada: Meta necesita una URL pública para el webhook.
 
 ## Gotchas
 

@@ -6,7 +6,7 @@ SaaS de automatización de rutinas de entrenamiento por WhatsApp. Trainer diseñ
 
 - **`personally-mvp/`** — código del MVP (monorepo pnpm + TypeScript).
   - `apps/api` — Express + Prisma (:3000). Cron interno `daily-bootstrap`.
-  - `apps/agent` — canal de WhatsApp elegido por `CHANNEL`: `wwebjs` (whatsapp-web.js + LocalAuth + supervisor con respawn, default) o `cloud` (Cloud API oficial, sin Chromium ni QR).
+  - `apps/agent` — proceso que drena el outbox y envía por la **WhatsApp Cloud API** oficial. Es un cliente HTTP: sin Chromium, sin QR, sin sesión que mantener. Los entrantes NO pasan por acá (llegan al webhook del API).
   - `apps/frontend` — React + Vite (:5173).
   - `apps/scheduler` — stub, la cron real vive en el API.
   - `libs/` — core rules, nlu (keywords), db (Prisma), messaging (abstracción de canal), engine (state machine), exercises (catálogo).
@@ -28,10 +28,10 @@ cd personally-mvp
 pnpm install                    # deps
 
 pnpm api:dev                    # API :3000
-pnpm agent:supervised           # agente WhatsApp con auto-respawn
+pnpm agent:dev                  # agente que envía por la Cloud API
 pnpm frontend:dev               # frontend :5173
 
-pnpm vitest run                 # tests (358/358 al 2026-08-10)
+pnpm vitest run                 # tests (360/360 al 2026-08-12)
 # Ojo: correr los 5 proyectos juntos aborta con SIGABRT en la Mac de Juan (bug
 # de entorno, previo a la migracion). Por proyecto anda: pnpm vitest run --project api
 
@@ -51,12 +51,14 @@ pnpm --filter @personally/db exec tsx src/scripts/translate-catalog.ts
    - `DIRECT_URL` (puerto 5432 para migrations).
    - `AGENT_TOKEN` (cualquier string aleatorio largo, igual en API y agent).
    - `AGENT_TRAINER_ID` (UUID del trainer bootstrap).
+   - `WHATSAPP_PHONE_NUMBER_ID` + `WHATSAPP_ACCESS_TOKEN` (obligatorias: sin ellas el agente no arranca).
+   - `WHATSAPP_APP_SECRET` + `WHATSAPP_WEBHOOK_VERIFY_TOKEN` (las usa el webhook de entrada del API).
    - `TESTING_DOW` (opcional, 1..7 para forzar dayOfWeek en tests).
 3. `cd personally-mvp && pnpm install`.
 4. `pnpm db:generate && pnpm db:push`.
 5. `pnpm bootstrap:trainer` (crea primer trainer según BOOTSTRAP_* del .env).
 6. Correr api + agent + frontend (3 terminales).
-7. Primera vez: escanear QR en el agente para autenticar WhatsApp (sesión persiste en `.wwebjs_auth/`, no se commitea).
+7. Para recibir mensajes hace falta que el webhook de Meta apunte a una URL pública (`POST /api/v1/webhooks/whatsapp`). En local el agente igual envía; lo que no llega es la respuesta del cliente. Ver `personally-mvp/deploy/README.md`.
 
 ## Principios de desarrollo
 

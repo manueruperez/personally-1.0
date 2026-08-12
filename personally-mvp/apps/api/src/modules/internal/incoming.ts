@@ -48,8 +48,9 @@ async function withClientLock<T>(clientId: string, fn: () => Promise<T>): Promis
 }
 
 /**
- * Procesa un mensaje entrante de un cliente, venga del agente whatsapp-web.js
- * o del webhook de la Cloud API.
+ * Procesa un mensaje entrante de un cliente. Hoy todos llegan por el webhook de
+ * la Cloud API; la ruta `/internal/.../incoming-message` sigue existiendo para
+ * un canal que reciba dentro del proceso del agente.
  *
  * 1. Persiste el mensaje en `messages` con direction=inbound.
  * 2. Clasifica intent.
