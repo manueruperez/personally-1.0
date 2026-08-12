@@ -11,7 +11,7 @@ const navItems = [
   { to: '/clients', label: 'Clientes' },
   { to: '/exercises', label: 'Ejercicios' },
   { to: '/notifications', label: 'Notificaciones', withUnreadBadge: true },
-  { to: '/agent', label: 'Agente', withAgentDot: true },
+  { to: '/agent', label: 'Bot', withAgentDot: true },
   { to: '/settings', label: 'Ajustes' },
 ];
 

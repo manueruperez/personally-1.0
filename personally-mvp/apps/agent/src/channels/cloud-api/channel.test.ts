@@ -35,10 +35,6 @@ describe('estado del canal', () => {
     expect(ch.getSessionState()).toBe('online');
   });
 
-  it('nunca pide QR', () => {
-    expect(makeChannel().getQrCode()).toBeNull();
-  });
-
   it('start notifica online para que el heartbeat lo reporte', async () => {
     const ch = makeChannel();
     const onState = vi.fn();

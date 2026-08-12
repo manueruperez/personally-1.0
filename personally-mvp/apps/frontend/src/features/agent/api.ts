@@ -1,18 +1,11 @@
 import { api } from '@/lib/api';
 
-export type AgentState =
-  | 'initializing'
-  | 'qr_required'
-  | 'authenticating'
-  | 'online'
-  | 'reconnecting'
-  | 'offline'
-  | 'unknown';
+/** `unknown` es del API, no del canal: el agente todavia no reporto nada. */
+export type AgentState = 'initializing' | 'online' | 'offline' | 'unknown';
 
 export interface AgentStatusDto {
   trainerId: string;
   state: AgentState;
-  qr: string | null;
   uptimeSec: number;
   lastHeartbeatAt: string;
   agentVersion: string | null;
@@ -20,5 +13,4 @@ export interface AgentStatusDto {
 
 export const agentApi = {
   status: () => api.get<AgentStatusDto>('/api/v1/agent/status'),
-  reconnect: () => api.post<{ commanded: boolean }>('/api/v1/agent/reconnect', {}),
 };

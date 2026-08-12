@@ -4,19 +4,33 @@
  * En produccion con multiples replicas migrar a Redis.
  */
 
-export type AgentState =
-  | 'initializing'
-  | 'qr_required'
-  | 'authenticating'
-  | 'online'
-  | 'reconnecting'
-  | 'offline'
-  | 'unknown';
+export type AgentState = 'initializing' | 'online' | 'offline' | 'unknown';
+
+/**
+ * Estados que reportaba el agente cuando el canal era whatsapp-web.js. Ya nadie
+ * los emite, pero durante un deploy el agente viejo sigue latiendo contra el API
+ * nuevo: si el heartbeat los rechazara, el panel mostraria el bot caido por un
+ * problema que no existe. Se aceptan y se traducen a `offline`, que es lo que
+ * significaban para el trainer (el bot no estaba mandando mensajes).
+ *
+ * Se pueden borrar en cuanto no queden agentes de la era wwebjs corriendo.
+ */
+const LEGACY_STATES = ['qr_required', 'authenticating', 'reconnecting'] as const;
+
+export const HEARTBEAT_STATES = ['initializing', 'online', 'offline', ...LEGACY_STATES] as const;
+
+export type HeartbeatState = (typeof HEARTBEAT_STATES)[number];
+
+export function normalizeAgentState(state: HeartbeatState): AgentState {
+  return (LEGACY_STATES as readonly string[]).includes(state) ? 'offline' : (state as AgentState);
+}
+
+/** Sin latido en este lapso damos el agente por caido. */
+const STALE_MS = 2 * 60 * 1000;
 
 export interface AgentStatus {
   trainerId: string;
   state: AgentState;
-  qr: string | null;
   uptimeSec: number;
   lastHeartbeatAt: string; // ISO
   agentVersion: string | null;
@@ -36,9 +50,11 @@ export function updateAgentStatus(s: Omit<AgentStatus, 'lastHeartbeatAt'>): Agen
 export function getAgentStatus(trainerId: string): AgentStatus {
   const found = statuses.get(trainerId);
   if (found) {
-    // Si no ha hecho heartbeat en > 2 min → offline
+    // El ultimo estado reportado vale mientras el agente siga latiendo. Si dejo
+    // de hacerlo el dato quedo congelado y no describe nada: cualquiera sea,
+    // pasa a `offline`.
     const age = Date.now() - new Date(found.lastHeartbeatAt).getTime();
-    if (age > 2 * 60 * 1000 && found.state === 'online') {
+    if (age > STALE_MS) {
       return { ...found, state: 'offline' };
     }
     return found;
@@ -46,7 +62,6 @@ export function getAgentStatus(trainerId: string): AgentStatus {
   return {
     trainerId,
     state: 'unknown',
-    qr: null,
     uptimeSec: 0,
     lastHeartbeatAt: new Date(0).toISOString(),
     agentVersion: null,

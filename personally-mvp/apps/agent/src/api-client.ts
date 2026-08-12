@@ -35,7 +35,6 @@ export interface HeartbeatPayload {
   state: string;
   uptimeSec: number;
   agentVersion?: string;
-  qr?: string | null;
 }
 
 export interface OutboxMessage {

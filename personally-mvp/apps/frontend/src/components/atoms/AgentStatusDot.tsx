@@ -5,10 +5,7 @@ type Color = 'green' | 'yellow' | 'red' | 'gray';
 
 const colorFor: Record<AgentState, Color> = {
   online: 'green',
-  authenticating: 'yellow',
-  qr_required: 'yellow',
   initializing: 'yellow',
-  reconnecting: 'yellow',
   offline: 'red',
   unknown: 'gray',
 };
@@ -21,13 +18,10 @@ const classes: Record<Color, string> = {
 };
 
 const labels: Record<AgentState, string> = {
-  online: 'Agente en línea',
-  authenticating: 'Agente autenticando',
-  qr_required: 'Agente requiere QR',
-  initializing: 'Agente inicializando',
-  reconnecting: 'Agente reconectando',
-  offline: 'Agente desconectado',
-  unknown: 'Agente sin reportar',
+  online: 'Bot en línea: los mensajes salen al instante',
+  initializing: 'Bot arrancando',
+  offline: 'Bot caído: los mensajes quedan en cola',
+  unknown: 'Bot sin reportar',
 };
 
 export function AgentStatusDot({

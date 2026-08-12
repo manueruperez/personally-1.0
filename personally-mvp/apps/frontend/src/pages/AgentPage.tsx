@@ -1,9 +1,6 @@
-import { QRCodeSVG } from 'qrcode.react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/atoms/Badge';
-import { Button } from '@/components/atoms/Button';
 import {
   Card,
   CardContent,
@@ -11,26 +8,20 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/atoms/Card';
-import { useAgentStatus, useReconnectAgent } from '@/features/agent/hooks';
+import { useAgentStatus } from '@/features/agent/hooks';
 import type { AgentState } from '@/features/agent/api';
 
 const stateVariant: Record<AgentState, 'success' | 'warning' | 'destructive' | 'secondary'> = {
   online: 'success',
-  authenticating: 'warning',
-  qr_required: 'warning',
   initializing: 'warning',
-  reconnecting: 'warning',
   offline: 'destructive',
   unknown: 'secondary',
 };
 
 const stateLabel: Record<AgentState, string> = {
-  online: 'En linea',
-  authenticating: 'Autenticando',
-  qr_required: 'QR requerido',
-  initializing: 'Inicializando',
-  reconnecting: 'Reconectando',
-  offline: 'Desconectado',
+  online: 'En línea',
+  initializing: 'Arrancando',
+  offline: 'Caído',
   unknown: 'Sin datos',
 };
 
@@ -45,45 +36,18 @@ function formatUptime(sec: number): string {
 
 export function AgentPage() {
   const { data, isLoading } = useAgentStatus();
-  const reconnect = useReconnectAgent();
-  // El "unknown" no es reconectable via SSE (no hay proceso vivo que lo reciba).
-  // Para ese caso hay que usar el supervisor (pnpm agent:supervised).
-  const canReconnect = data && data.state !== 'unknown';
+  // `unknown` es "nunca reporto"; `offline` es "dejo de reportar". Para el
+  // trainer son lo mismo: el bot no esta mandando mensajes.
+  const down = data?.state === 'offline' || data?.state === 'unknown';
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-heading font-semibold">Agente WhatsApp</h1>
-          <p className="text-muted-foreground">Estado de la sesion que envia las rutinas.</p>
-        </div>
-        <Button
-          variant="outline"
-          onClick={() => reconnect.mutate()}
-          disabled={!canReconnect || reconnect.isPending}
-          title={
-            canReconnect
-              ? 'Fuerza al agente a re-inicializar Puppeteer sin perder la sesion de WhatsApp.'
-              : 'Proceso no disponible. Arrancalo con `pnpm agent:supervised` para auto-revivir.'
-          }
-        >
-          <RefreshCw
-            className={`h-4 w-4 mr-1 ${reconnect.isPending ? 'animate-spin' : ''}`}
-          />
-          {reconnect.isPending ? 'Reconectando...' : 'Reconectar'}
-        </Button>
+      <div>
+        <h1 className="text-2xl font-heading font-semibold">Bot de WhatsApp</h1>
+        <p className="text-muted-foreground">
+          Mientras esté en línea, tus clientes reciben el saludo y la rutina sin que hagas nada.
+        </p>
       </div>
-
-      {reconnect.isSuccess && (
-        <div className="rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm text-primary">
-          Comando enviado. El estado va a cambiar a "reconectando" en unos segundos.
-        </div>
-      )}
-      {reconnect.isError && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          No se pudo enviar el comando: {(reconnect.error as Error).message}
-        </div>
-      )}
 
       {isLoading && !data && (
         <Card>
@@ -100,11 +64,10 @@ export function AgentPage() {
                   <CardTitle>Estado</CardTitle>
                   <CardDescription>
                     {data.state === 'unknown'
-                      ? 'El agente no se ha reportado aun. Arrancalo con `pnpm agent:dev`.'
-                      : `Ultima actualizacion: hace ${formatDistanceToNow(
-                          new Date(data.lastHeartbeatAt),
-                          { locale: es },
-                        )}`}
+                      ? 'El bot todavía no dio señales de vida.'
+                      : `Última señal: hace ${formatDistanceToNow(new Date(data.lastHeartbeatAt), {
+                          locale: es,
+                        })}`}
                   </CardDescription>
                 </div>
                 <Badge variant={stateVariant[data.state]}>{stateLabel[data.state]}</Badge>
@@ -112,54 +75,25 @@ export function AgentPage() {
             </CardHeader>
             {data.state === 'online' && (
               <CardContent className="text-sm text-muted-foreground">
-                Uptime: {formatUptime(data.uptimeSec)}
-                {data.agentVersion && ` · v${data.agentVersion}`}
+                Funcionando hace {formatUptime(data.uptimeSec)}
+                {data.agentVersion && ` · versión ${data.agentVersion}`}
               </CardContent>
             )}
           </Card>
 
-          {data.state === 'qr_required' && data.qr && (
+          {down && (
             <Card>
-              <CardHeader>
-                <CardTitle>Escanea este codigo</CardTitle>
-                <CardDescription>
-                  WhatsApp del bot → Menu → Dispositivos vinculados → Vincular un dispositivo
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center gap-4 py-6">
-                <div className="bg-white p-4 rounded-lg">
-                  <QRCodeSVG value={data.qr} size={256} level="M" />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  El codigo se regenera automaticamente si expira.
+              <CardContent className="py-6 text-sm space-y-2">
+                <p className="text-destructive font-medium">
+                  El bot no está enviando mensajes de WhatsApp.
                 </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {data.state === 'offline' && (
-            <Card>
-              <CardContent className="py-6 text-sm">
-                <p className="text-destructive font-medium">El agente esta desconectado.</p>
-                <p className="text-muted-foreground mt-1">
-                  Probá el botón <strong>Reconectar</strong> arriba. Si no funciona, el proceso
-                  probablemente murió — reinicialo con{' '}
-                  <code>pnpm agent:supervised</code> (auto-reinicia si crashea).
+                <p className="text-muted-foreground">
+                  Los mensajes que se generen mientras tanto quedan en cola y salen apenas vuelva.
+                  Lo que se atrasa es la hora a la que tus clientes los reciben.
                 </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {data.state === 'unknown' && (
-            <Card>
-              <CardContent className="py-6 text-sm">
-                <p className="text-muted-foreground font-medium">
-                  Proceso del agente no detectado.
-                </p>
-                <p className="text-muted-foreground mt-1">
-                  Recomendado: <code>pnpm agent:supervised</code> — el supervisor detecta
-                  crashes y vuelve a levantar el agente automáticamente. Simple{' '}
-                  <code>pnpm agent:dev</code> también sirve pero no se auto-reinicia.
+                <p className="text-muted-foreground">
+                  No hay nada que apretar acá: el bot vuelve solo cuando el servidor lo levanta. Si
+                  sigue caído en unos minutos, avisale a quien administra Personally.
                 </p>
               </CardContent>
             </Card>

@@ -26,7 +26,6 @@
     "date-fns": "^3.6.0",
     "date-fns-tz": "^3.1.3",
     "lucide-react": "^0.378.0",
-    "qrcode.react": "^4.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.51.4",

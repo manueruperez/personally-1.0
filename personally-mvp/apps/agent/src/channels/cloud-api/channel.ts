@@ -65,11 +65,6 @@ export class CloudApiChannel implements MessagingChannel {
     return 'online';
   }
 
-  /** Nunca hay QR: la credencial es un token permanente. */
-  getQrCode(): string | null {
-    return null;
-  }
-
   /**
    * Los entrantes llegan por webhook al API, no por este proceso. Se acepta el
    * handler para cumplir la interfaz pero nunca se invoca.

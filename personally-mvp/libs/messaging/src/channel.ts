@@ -2,15 +2,14 @@ import type { ContentType } from '@personally/types';
 
 /**
  * Estado del canal de mensajeria (no confundir con sesion de entrenamiento).
- * Ver specs/bots/01-agente-whatsapp.md §2.
+ *
+ * Se quedo sin `qr_required`, `authenticating` ni `reconnecting`: describian una
+ * sesion de WhatsApp Web que habia que vincular y podia caerse. Con la Cloud API
+ * la credencial es un token permanente, asi que el canal solo puede estar arriba
+ * o abajo. `initializing` sobrevive para el canal que venga (uno con handshake
+ * real arranca ahi antes de llegar a `online`).
  */
-export type SessionState =
-  | 'initializing'
-  | 'qr_required'
-  | 'authenticating'
-  | 'online'
-  | 'reconnecting'
-  | 'offline';
+export type SessionState = 'initializing' | 'online' | 'offline';
 
 export interface OutgoingMessage {
   contentType: ContentType;
@@ -70,7 +69,4 @@ export interface MessagingChannel {
 
   /** Estado actual del canal. */
   getSessionState(): SessionState;
-
-  /** QR code en base64 si el estado es qr_required; null en otro caso. */
-  getQrCode(): string | null;
 }

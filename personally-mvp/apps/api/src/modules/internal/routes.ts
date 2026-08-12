@@ -5,9 +5,9 @@ import { DomainError } from '@personally/core';
 import { incomingMessageInput, outgoingMessageInput } from '@personally/types';
 import { validate } from '../../middleware/validate.js';
 import { logger } from '../../lib/logger.js';
-import { updateAgentStatus } from '../agent/store.js';
+import { HEARTBEAT_STATES, normalizeAgentState, updateAgentStatus } from '../agent/store.js';
 import { takeNext } from '../agent/outbox.js';
-import { outboxEvents, commandEvents, type AgentCommand } from '../agent/events.js';
+import { outboxEvents } from '../agent/events.js';
 import { processIncomingMessage } from './incoming.js';
 
 export const internalRouter: Router = Router();
@@ -81,13 +81,17 @@ internalRouter.post(
 
 /**
  * Heartbeat del agente. Se usa para detectar agentes caidos.
+ *
+ * El enum acepta los estados de la era whatsapp-web.js porque durante un deploy
+ * conviven agente viejo y API nuevo; `normalizeAgentState` los colapsa (ver
+ * agent/store.ts). El `qr` que manda ese agente viejo lo descarta zod solo, que
+ * por defecto no es estricto con las claves de mas.
  */
 const heartbeatBody = z.object({
   trainerId: z.string().uuid(),
-  state: z.enum(['initializing', 'qr_required', 'authenticating', 'online', 'reconnecting', 'offline']),
+  state: z.enum(HEARTBEAT_STATES),
   uptimeSec: z.number().int().min(0),
   agentVersion: z.string().optional(),
-  qr: z.string().nullable().optional(),
 });
 
 internalRouter.get(
@@ -123,16 +127,11 @@ internalRouter.get(
     res.write(`: connected ${new Date().toISOString()}\n\n`);
 
     const outboxChannel = `outbox:${trainerId}`;
-    const cmdChannel = `command:${trainerId}`;
 
     const onOutbox = (payload: { id: string }) => {
       res.write(`event: outbox\ndata: ${JSON.stringify(payload)}\n\n`);
     };
-    const onCommand = (cmd: AgentCommand) => {
-      res.write(`event: command\ndata: ${JSON.stringify(cmd)}\n\n`);
-    };
     outboxEvents.on(outboxChannel, onOutbox);
-    commandEvents.on(cmdChannel, onCommand);
 
     const keepalive = setInterval(() => {
       res.write(`: ping ${Date.now()}\n\n`);
@@ -141,7 +140,6 @@ internalRouter.get(
     const cleanup = () => {
       clearInterval(keepalive);
       outboxEvents.off(outboxChannel, onOutbox);
-      commandEvents.off(cmdChannel, onCommand);
     };
     req.on('close', cleanup);
     req.on('aborted', cleanup);
@@ -153,13 +151,12 @@ internalRouter.post(
   validate({ body: heartbeatBody }),
   async (req, res, next) => {
     try {
-      const { trainerId, state, uptimeSec, agentVersion, qr } = req.body as z.infer<
+      const { trainerId, state, uptimeSec, agentVersion } = req.body as z.infer<
         typeof heartbeatBody
       >;
       const status = updateAgentStatus({
         trainerId,
-        state,
-        qr: qr ?? null,
+        state: normalizeAgentState(state),
         uptimeSec,
         agentVersion: agentVersion ?? null,
       });

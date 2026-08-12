@@ -1,22 +1,17 @@
 import { logger } from './logger.js';
 
-export type AgentCommand = { type: 'reinit' } | { type: 'ping' };
-
 interface SubscribeOptions {
   url: string;
   token: string;
   onOutbox: () => void;
-  onCommand?: (cmd: AgentCommand) => void;
   signal?: AbortSignal;
 }
 
 /**
  * Cliente SSE basado en fetch streaming. Soporta custom headers.
  *
- * Eventos:
- *  - `event: outbox`  → onOutbox()
- *  - `event: command` → onCommand(data)
- * Reconecta con backoff exponencial (max 30s).
+ * Unico evento: `event: outbox` → onOutbox(). Reconecta con backoff exponencial
+ * (max 30s).
  */
 export async function subscribeToEvents(opts: SubscribeOptions): Promise<void> {
   let attempt = 0;
@@ -80,21 +75,11 @@ function handleEvent(block: string, opts: SubscribeOptions): void {
   if (lines.every((l) => l.startsWith(':') || l === '')) return;
 
   const eventLine = lines.find((l) => l.startsWith('event:'));
-  const dataLine = lines.find((l) => l.startsWith('data:'));
   const eventName = eventLine?.slice('event:'.length).trim() ?? 'message';
 
-  if (eventName === 'outbox') {
-    opts.onOutbox();
-    return;
-  }
-  if (eventName === 'command' && dataLine && opts.onCommand) {
-    try {
-      const cmd = JSON.parse(dataLine.slice('data:'.length).trim()) as AgentCommand;
-      opts.onCommand(cmd);
-    } catch (err) {
-      logger.warn({ err: String(err) }, 'command mal formado');
-    }
-  }
+  // Cualquier otro evento se ignora a proposito: un API mas nuevo que este
+  // agente puede mandar eventos que todavia no sabemos manejar.
+  if (eventName === 'outbox') opts.onOutbox();
 }
 
 function sleep(ms: number): Promise<void> {

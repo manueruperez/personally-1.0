@@ -41,15 +41,6 @@ export function startOutboxWorker(deps: { channel: MessagingChannel; api: ApiCli
   void subscribeToEvents({
     url: `${apiBaseUrl}/api/v1/internal/events?trainerId=${encodeURIComponent(trainerId)}`,
     token: agentToken,
-    // El comando `reinit` (boton "Reconectar" del panel) forzaba un respawn del
-    // Chromium de whatsapp-web.js. La Cloud API no tiene sesion que reiniciar,
-    // asi que el comando no puede hacer nada: se loguea para que el click del
-    // trainer deje rastro en vez de desaparecer.
-    onCommand: (cmd) => {
-      if (cmd.type === 'reinit') {
-        logger.warn('comando reinit recibido: la Cloud API no tiene sesion que reiniciar');
-      }
-    },
     onOutbox: () => {
       void drain();
     },

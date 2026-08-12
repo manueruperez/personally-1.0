@@ -19,7 +19,6 @@ export function startHeartbeat(deps: { channel: MessagingChannel; api: ApiClient
         trainerId,
         state: channel.getSessionState(),
         uptimeSec: Math.round((Date.now() - startedAt) / 1000),
-        qr: channel.getQrCode(),
       });
     } catch (err) {
       logger.warn({ err }, 'heartbeat failed');
@@ -30,7 +29,8 @@ export function startHeartbeat(deps: { channel: MessagingChannel; api: ApiClient
   send();
   setInterval(send, INTERVAL_MS);
 
-  // Heartbeat extra en cada cambio de estado (QR aparece mas rapido en UI)
+  // Heartbeat extra en cada cambio de estado: el intervalo es de un minuto y el
+  // panel no tiene por que esperar tanto para reflejar que el bot se cayo.
   channel.onSessionStateChange(() => {
     send();
   });

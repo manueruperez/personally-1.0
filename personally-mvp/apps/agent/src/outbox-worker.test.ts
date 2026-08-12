@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MessagingChannel } from '@personally/messaging';
 import type { ApiClient, OutboxMessage } from './api-client.js';
-import type { AgentCommand } from './sse-client.js';
 
 const subscribeToEvents = vi.fn();
 
@@ -101,21 +100,6 @@ describe('startOutboxWorker', () => {
     startOutboxWorker({ channel, api });
 
     expect(subscribeToEvents).not.toHaveBeenCalled();
-  });
-
-  it('el comando reinit solo loguea: la Cloud API no tiene sesion que reiniciar', async () => {
-    const { channel, send } = makeChannel();
-    const { api, drained } = makeApi([]);
-
-    startOutboxWorker({ channel, api });
-    await drained;
-
-    const opts = subscribeToEvents.mock.calls[0]![0] as {
-      onCommand: (cmd: AgentCommand) => void;
-    };
-    expect(() => opts.onCommand({ type: 'reinit' })).not.toThrow();
-    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('reinit'));
-    expect(send).not.toHaveBeenCalled();
   });
 
   it('un envio fallido reporta el error al API y no corta el drenado', async () => {
