@@ -3,9 +3,7 @@
 # Las VITE_* se hornean al build: vienen como build args desde docker-compose.
 
 FROM node:20-bookworm-slim AS build
-ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
-    PUPPETEER_SKIP_DOWNLOAD=true \
-    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 # openssl: consistencia con api/agent (prisma generate elige engines por el ssl presente)
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/* \

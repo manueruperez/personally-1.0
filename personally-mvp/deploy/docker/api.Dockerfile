@@ -3,9 +3,7 @@
 # Contexto de build: la raíz de personally-mvp (ver docker-compose.yml).
 
 FROM node:20-bookworm-slim AS build
-ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
-    PUPPETEER_SKIP_DOWNLOAD=true \
-    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 # openssl ANTES del install: sin él, Prisma baja engines openssl-1.1.x que no
 # cargan en bookworm (libssl3)
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \

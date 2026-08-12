@@ -1,7 +1,8 @@
 /**
  * Contract tests de los Dockerfiles + .dockerignore.
  * Verifican los pasos que, si faltan, el build "pasa" pero el runtime revienta
- * (prisma generate, libs compiladas, Chromium del sistema, locks limpiados).
+ * (prisma generate, libs compiladas, artefacto emitido), y que no vuelva a
+ * entrar el peso muerto de whatsapp-web.js (Chromium, Puppeteer).
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -12,7 +13,6 @@ const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.met
 const apiDockerfile = read('../docker/api.Dockerfile');
 const agentDockerfile = read('../docker/agent.Dockerfile');
 const webDockerfile = read('../docker/web.Dockerfile');
-const entrypoint = read('../docker/agent-entrypoint.sh');
 const dockerignore = read('../../.dockerignore');
 
 describe('api.Dockerfile', () => {
@@ -44,39 +44,36 @@ describe('api.Dockerfile', () => {
     expect(apiDockerfile).toContain('localhost:3000/health');
   });
 
-  it('no descarga el Chromium bundled de puppeteer (solo el agente lo necesita)', () => {
-    expect(apiDockerfile).toContain('PUPPETEER_SKIP_DOWNLOAD=true');
-  });
 });
 
 describe('agent.Dockerfile', () => {
-  it('instala Chromium del sistema y lo apunta via PUPPETEER_EXECUTABLE_PATH', () => {
-    expect(agentDockerfile).toMatch(/apt-get install[^&]*chromium/s);
-    expect(agentDockerfile).toContain('PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium');
-  });
-
-  it('usa el entrypoint que limpia locks de LocalAuth', () => {
-    expect(agentDockerfile).toContain('agent-entrypoint.sh');
-    expect(agentDockerfile).toContain('ENTRYPOINT');
-  });
-
-  it('trabaja desde apps/agent para que .wwebjs_auth caiga en el volumen', () => {
+  it('arranca el JS compilado desde apps/agent (el CMD usa ruta relativa a dist/)', () => {
     expect(agentDockerfile).toContain('WORKDIR /app/apps/agent');
+    expect(agentDockerfile).toContain('CMD ["node", "dist/index.js"]');
   });
 
-  it('usa dumb-init para propagar señales (docker stop limpio)', () => {
+  it('usa dumb-init como PID 1 para propagar señales (docker stop limpio)', () => {
     expect(agentDockerfile).toMatch(/ENTRYPOINT \["dumb-init"/);
   });
 });
 
-describe('agent-entrypoint.sh', () => {
-  it('borra los Singleton locks que un crash anterior pudo dejar', () => {
-    expect(entrypoint).toMatch(/Singleton\*/);
-    expect(entrypoint).toMatch(/rm -f|delete/);
+describe('sin rastros de whatsapp-web.js', () => {
+  it('ninguna imagen instala Chromium ni configura Puppeteer', () => {
+    for (const [name, df] of Object.entries({
+      api: apiDockerfile,
+      agent: agentDockerfile,
+      web: webDockerfile,
+    })) {
+      expect(df, `${name}.Dockerfile no debe instalar chromium`).not.toMatch(
+        /apt-get install[^&]*chromium/s,
+      );
+      expect(df, `${name}.Dockerfile no debe setear env de Puppeteer`).not.toContain('PUPPETEER_');
+    }
   });
 
-  it('ejecuta el agente compilado con exec (PID 1 correcto para señales)', () => {
-    expect(entrypoint).toContain('exec node dist/index.js');
+  it('el agente no monta ni limpia la sesión LocalAuth (no existe)', () => {
+    expect(agentDockerfile).not.toContain('.wwebjs_auth');
+    expect(agentDockerfile).not.toContain('agent-entrypoint.sh');
   });
 });
 
@@ -95,7 +92,9 @@ describe('web.Dockerfile', () => {
 });
 
 describe('.dockerignore', () => {
-  it('nunca manda secretos ni sesión de WhatsApp al contexto de build', () => {
+  // .wwebjs_auth ya no lo genera nadie, pero sigue existiendo en las máquinas
+  // que corrieron el canal viejo: son cientos de MB de contexto de build.
+  it('nunca manda secretos ni sesión vieja de WhatsApp al contexto de build', () => {
     expect(dockerignore).toMatch(/^\.env$/m);
     expect(dockerignore).toMatch(/^\.wwebjs_auth$/m);
     expect(dockerignore).toMatch(/^node_modules$/m);

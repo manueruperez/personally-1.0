@@ -1,14 +1,11 @@
 # syntax=docker/dockerfile:1
-# Agente WhatsApp — node:20 + Chromium del sistema (Debian).
-# La sesión LocalAuth vive en un volumen montado en /app/apps/agent/.wwebjs_auth.
-# El respawn ante crash lo maneja `restart: unless-stopped` del compose
-# (equivalente al supervisor.ts de dev); el entrypoint limpia los Singleton
-# locks que un crash anterior pudo dejar en el volumen.
+# Agente WhatsApp — node:20 pelado.
+# Desde la migración a la Cloud API el agente es un cliente HTTP sin estado:
+# no hay Chromium, ni sesión en disco, ni volumen que montar. El respawn ante
+# crash lo maneja `restart: unless-stopped` del compose.
 
 FROM node:20-bookworm-slim AS build
-ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
-    PUPPETEER_SKIP_DOWNLOAD=true \
-    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 # openssl ANTES del install: engines de Prisma correctos (openssl-3.0.x)
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/* \
@@ -37,16 +34,12 @@ RUN pnpm --filter @personally/db generate \
 
 FROM node:20-bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      chromium \
-      fonts-liberation \
-      fonts-noto-color-emoji \
       ca-certificates \
       dumb-init \
   && rm -rf /var/lib/apt/lists/*
-ENV NODE_ENV=production \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV NODE_ENV=production
 WORKDIR /app/apps/agent
 COPY --from=build /app /app
-COPY deploy/docker/agent-entrypoint.sh /usr/local/bin/agent-entrypoint.sh
-RUN chmod +x /usr/local/bin/agent-entrypoint.sh
-ENTRYPOINT ["dumb-init", "--", "agent-entrypoint.sh"]
+# dumb-init como PID 1 para que `docker stop` propague SIGTERM al node.
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "dist/index.js"]

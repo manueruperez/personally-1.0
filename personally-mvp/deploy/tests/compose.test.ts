@@ -42,11 +42,8 @@ describe('docker-compose: estructura', () => {
     }
   });
 
-  it('declara los volúmenes persistentes del stack', () => {
-    const volumes = Object.keys(compose.volumes);
-    expect(volumes).toEqual(
-      expect.arrayContaining(['pgdata', 'wwebjs_auth', 'caddy_data']),
-    );
+  it('declara exactamente los volúmenes persistentes del stack', () => {
+    expect(Object.keys(compose.volumes).sort()).toEqual(['caddy_config', 'caddy_data', 'pgdata']);
   });
 });
 
@@ -137,12 +134,12 @@ describe('docker-compose: agent', () => {
     expect(env.API_BASE_URL).toBe('http://api:3000');
   });
 
-  it('usa el Chromium del sistema del contenedor', () => {
-    expect(env.PUPPETEER_EXECUTABLE_PATH).toBe('/usr/bin/chromium');
+  it('no arrastra nada de Puppeteer: el canal viejo ya no existe', () => {
+    expect(env.PUPPETEER_EXECUTABLE_PATH).toBeUndefined();
   });
 
-  it('persiste la sesión LocalAuth en un volumen (reinicios no piden QR)', () => {
-    expect(agent.volumes).toContain('wwebjs_auth:/app/apps/agent/.wwebjs_auth');
+  it('no monta volúmenes: la Cloud API no guarda sesión en disco', () => {
+    expect(agent.volumes).toBeUndefined();
   });
 
   it('espera a que la API esté healthy (evita drenar outbox contra API caída)', () => {
@@ -176,8 +173,8 @@ describe('docker-compose: canal WhatsApp Cloud API', () => {
     expect(env.WHATSAPP_WEBHOOK_VERIFY_TOKEN).toBe('${WHATSAPP_WEBHOOK_VERIFY_TOKEN:-}');
   });
 
-  it('el agente arranca en wwebjs cuando CHANNEL no esta seteado', () => {
-    expect(services.agent.environment?.CHANNEL).toBe('${CHANNEL:-wwebjs}');
+  it('no queda variable CHANNEL: hay un solo canal y no se elige', () => {
+    expect(services.agent.environment?.CHANNEL).toBeUndefined();
   });
 
   it('el agente recibe las credenciales de la Cloud API', () => {
