@@ -38,34 +38,32 @@ export function startOutboxWorker(deps: { channel: MessagingChannel; api: ApiCli
   }
 
   // 1) SSE: camino caliente. Llama drain() al recibir `event: outbox`.
-  //    Tambien maneja `event: command` para reinit remoto desde la API.
   void subscribeToEvents({
     url: `${apiBaseUrl}/api/v1/internal/events?trainerId=${encodeURIComponent(trainerId)}`,
     token: agentToken,
-    onOutbox: () => {
-      void drain();
-    },
+    // El comando `reinit` (boton "Reconectar" del panel) forzaba un respawn del
+    // Chromium de whatsapp-web.js. La Cloud API no tiene sesion que reiniciar,
+    // asi que el comando no puede hacer nada: se loguea para que el click del
+    // trainer deje rastro en vez de desaparecer.
     onCommand: (cmd) => {
       if (cmd.type === 'reinit') {
-        logger.warn('comando reinit recibido, reinicializando cliente');
-        if ('reinit' in channel && typeof (channel as { reinit?: () => void }).reinit === 'function') {
-          (channel as { reinit: () => void }).reinit();
-        }
+        logger.warn('comando reinit recibido: la Cloud API no tiene sesion que reiniciar');
       }
+    },
+    onOutbox: () => {
+      void drain();
     },
   });
 
   // 2) Polling de respaldo: si SSE se cayo y reconecta, igual drenamos periodicamente.
   setInterval(drain, POLL_FALLBACK_MS);
 
-  // 3) Drenar al conectar WhatsApp. Delay de 15s para darle tiempo a Puppeteer
-  //    a estabilizarse — sin esto, el primer send suele tirar `detached frame`
-  //    porque el DOM de WhatsApp Web aun se esta hidratando.
-  channel.onSessionStateChange((state) => {
-    if (state === 'online') {
-      setTimeout(() => void drain(), 15_000);
-    }
-  });
+  // 3) Drenado inicial: el outbox puede traer mensajes encolados mientras el
+  //    agente estaba caido y no hay razon para esperar al primer tick del
+  //    polling. Antes esto colgaba de `onSessionStateChange('online')`, que con
+  //    la Cloud API nunca dispara: el canal ya arranco online antes de que este
+  //    worker registre su handler.
+  void drain();
 }
 
 async function processOne(

@@ -26,7 +26,6 @@
     "load:exercises": "pnpm --filter @personally/db load:exercises",
     "api:dev": "pnpm --filter @personally/api dev",
     "agent:dev": "pnpm --filter @personally/agent dev",
-    "agent:supervised": "pnpm --filter @personally/agent supervised",
     "scheduler:dev": "pnpm --filter @personally/scheduler dev",
     "frontend:dev": "pnpm --filter @personally/frontend dev"
   },

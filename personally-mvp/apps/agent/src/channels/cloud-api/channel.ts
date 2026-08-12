@@ -32,8 +32,8 @@ export interface CloudApiChannelOptions extends CloudApiConfig {
 /**
  * Implementacion de MessagingChannel sobre la Cloud API oficial de Meta.
  *
- * A diferencia de WhatsAppWebJsChannel no hay sesion que mantener: no hay
- * Chromium, ni QR, ni reconexion. Los entrantes NO llegan por aca sino por el
+ * No hay sesion que mantener: no hay Chromium, ni QR, ni reconexion — la
+ * credencial es un token permanente. Los entrantes NO llegan por aca sino por el
  * webhook del API (ver apps/api .../webhooks), asi que `onIncoming` existe solo
  * para cumplir la interfaz.
  */

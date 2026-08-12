@@ -48,8 +48,9 @@ export type SessionStateHandler = (state: SessionState, meta?: Record<string, un
 
 /**
  * Abstraccion de canal de mensajeria.
- * Implementaciones: WhatsAppWebJsChannel (MVP), TelegramChannel (Plan B),
- * WhatsAppCloudApiChannel (post-beta).
+ * Implementacion activa: CloudApiChannel (WhatsApp Cloud API de Meta). La
+ * interfaz es lo que hizo barata la migracion desde whatsapp-web.js, asi que
+ * se conserva para el proximo canal (Telegram, otro BSP).
  */
 export interface MessagingChannel {
   /** Inicia la conexion al canal. Resuelve cuando esta `online`. */

@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { createChannel, resolveChannelKind } from './channels/factory.js';
+import { createChannel } from './channels/create-channel.js';
 import { ApiClient } from './api-client.js';
 import { createIncomingHandler } from './handlers/incoming.js';
 import { startHeartbeat } from './heartbeat.js';
@@ -16,8 +16,7 @@ async function main() {
   }
 
   const api = new ApiClient(apiBaseUrl, agentToken, AGENT_VERSION);
-  const channel = createChannel({ agentVersion: AGENT_VERSION, api });
-  logger.info({ channel: resolveChannelKind() }, 'canal seleccionado');
+  const channel = createChannel();
 
   channel.onIncoming(createIncomingHandler({ channel, api }));
 
