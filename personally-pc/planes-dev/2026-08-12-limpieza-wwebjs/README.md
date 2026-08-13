@@ -1,25 +1,31 @@
 # Plan: eliminar whatsapp-web.js del proyecto
 
-*Creado: 2026-08-12. Estado: **EJECUTADO Y CERRADO** el 2026-08-12 — ver sección 7.*
+*Creado: 2026-08-12. Ejecutado el 2026-08-12. Condición de arranque cumplida el 2026-08-13.*
+
+**Estado: código ejecutado y E2E validado; falta desplegar.** Ver sección 7.
 
 ## 1. Condición de arranque (bloqueante)
 
-**No ejecutar hasta que el E2E completo por Cloud API haya pasado en producción.**
+**Cumplida el 2026-08-13.** El ciclo diario completo corrió por Cloud API en
+producción: **19 mensajes, cero errores**, sesión en `completed` y todos los
+`externalId` como `wamid.*` reales de Meta.
 
-A la fecha de escribir esto, `CHANNEL=cloud` está activo pero **no se envió ni un
-solo mensaje exitoso**: el único intento de saludo falló (`#132001`, plantilla
-todavía en revisión) y la imagen del API está 43 horas atrasada.
+- [x] Rebuild del API con el copy alineado.
+- [x] Saludo por plantilla entregado al teléfono (cron de las 5 AM, 13/08 10:00 UTC).
+- [x] `iniciar` → tarjeta → cierre, todo por Cloud API.
+- [x] Un día de cron sin errores en `messages.error`.
 
-Mientras eso siga así, `whatsapp-web.js` es la única red de seguridad del
-proyecto: `CHANNEL=wwebjs` + restart devuelve el bot a un canal que sabemos que
-funciona. Borrarlo antes de validar deja el piloto sin rollback.
+El razonamiento original se conserva porque sigue valiendo para la próxima vez:
+mientras no hubo un envío exitoso, `whatsapp-web.js` era la única red de
+seguridad y borrarlo dejaba el piloto sin rollback.
 
-Checklist previo:
-
-- [ ] Rebuild del API con el copy alineado.
-- [ ] Saludo forzado que llega al teléfono como plantilla.
-- [ ] `iniciar` → tarjeta con imagen → `siguiente` → cierre, todo por Cloud API.
-- [ ] Al menos un día de cron a las 5 AM sin errores en `messages.error`.
+**Diagnóstico erróneo del 2026-08-12, anotado para no repetirlo:** se atribuyó a
+la falta de verificación del negocio (`can_send_message: LIMITED`, error 141010)
+un bloqueo de envíos que no existía. El `health_status` sigue reportando lo mismo
+hoy y los mensajes salen sin problema — `LIMITED` es el tope de 250
+conversaciones diarias, no un bloqueo. La causa real del mensaje que no llegó fue
+la plantilla recién aprobada todavía propagándose. **La verificación del negocio
+NO hace falta para el piloto.**
 
 Recomendado además: **una semana de piloto real** antes de quemar las naves. El
 costo de esperar es un `if` en una fábrica; el de apurarse, quedarse sin canal.
